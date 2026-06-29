@@ -50,6 +50,8 @@ a{color:var(--accent)}
 .grid{display:grid;gap:16px}
 .cards{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
 .card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.choose-card{transition:border-color .15s ease,transform .15s ease}
+.choose-card:hover{border-color:var(--accent);transform:translateY(-2px)}
 .kpi{display:flex;flex-direction:column;gap:6px}
 .kpi .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
 .kpi .val{font-size:28px;font-weight:700}
@@ -254,6 +256,7 @@ code.dns{display:block;background:#0b0d11;border:1px solid var(--border);border-
 <div id="player-root"></div>
 <div id="toast-root"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 "use strict";
 /* ============================================================
@@ -261,27 +264,62 @@ code.dns{display:block;background:#0b0d11;border:1px solid var(--border);border-
    ============================================================ */
 
 /* ---------- Persistence ---------- */
-const STORE_KEY = "funnelforge_db_v1";
+/* ===== Supabase cloud storage — fill these 2 values to enable per-user cloud data ===== */
+const SUPABASE_URL = "";        /* z.B. https://xxxx.supabase.co  */
+const SUPABASE_ANON_KEY = "";   /* anon public key: Supabase → Project Settings → API */
+const SUPA_TABLE = "funnelforge_users";
+
+/* user identity passed from LearningSuite via URL: ?uid=...&name=... */
+const _params = new URLSearchParams(location.search);
+const USER_ID = (_params.get("uid")||"").trim();
+const USER_NAME = (_params.get("name")||"").trim();
+
+const STORE_KEY = "funnelforge_db_v1" + (USER_ID?("_"+USER_ID):"");
 const VIS_KEY = "funnelforge_visitor";
 
 function uid(p){ return (p||"id")+"_"+Math.random().toString(36).slice(2,9); }
 function now(){ return Date.now(); }
 function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
 
+let sb=null;
+try{ if(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase){ sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); } }catch(e){ console.warn("supabase init",e); }
+const REMOTE = !!(sb && USER_ID);
+
 let DB = loadDB();
 DB.funnels=DB.funnels||[]; DB.leads=DB.leads||[]; DB.events=DB.events||[]; DB.domains=DB.domains||[];
 DB.schemaVersion=DB.schemaVersion||1;
 if(!DB.aiConfig) DB.aiConfig = { provider:"openai", apiKey:"", model:"" };
+
 function loadDB(){
-  try{
-    const raw = localStorage.getItem(STORE_KEY);
-    if(raw) return JSON.parse(raw);
-  }catch(e){ console.warn("DB load failed",e); }
+  try{ const raw = localStorage.getItem(STORE_KEY); if(raw) return JSON.parse(raw); }
+  catch(e){ console.warn("DB load failed",e); }
   return { funnels:[], leads:[], events:[], domains:[] };
 }
+let _supaTimer=null;
 function saveDB(){
-  try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }
-  catch(e){ console.warn("DB save failed",e); }
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){ console.warn("DB save failed",e); }
+  if(REMOTE){ clearTimeout(_supaTimer); _supaTimer=setTimeout(supaSave, 700); }
+}
+function supaSave(){
+  if(!REMOTE) return;
+  try{ sb.from(SUPA_TABLE).upsert({ uid:USER_ID, name:USER_NAME||null, data:DB, updated_at:new Date().toISOString() }, { onConflict:"uid" })
+      .then(r=>{ if(r&&r.error) console.warn("supa save",r.error.message); }); }
+  catch(e){ console.warn("supa save",e); }
+}
+async function supaLoad(){
+  if(!REMOTE) return false;
+  try{
+    const res = await sb.from(SUPA_TABLE).select("data").eq("uid",USER_ID).maybeSingle();
+    if(res.error){ console.warn("supa load",res.error.message); return false; }
+    if(res.data && res.data.data){
+      DB = res.data.data;
+      DB.funnels=DB.funnels||[]; DB.leads=DB.leads||[]; DB.events=DB.events||[]; DB.domains=DB.domains||[];
+      DB.schemaVersion=DB.schemaVersion||1; if(!DB.aiConfig) DB.aiConfig={provider:"openai",apiKey:"",model:""};
+      try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){}
+      return true;
+    }
+    supaSave(); return false;
+  }catch(e){ console.warn("supa load",e); return false; }
 }
 function getVisitorId(){
   let v = localStorage.getItem(VIS_KEY);
@@ -685,7 +723,9 @@ const TEMPLATES = {
    ============================================================ */
 function render(){
   const root=document.getElementById("root");
-  if(UI.view==="builder"){ root.innerHTML=sidebar()+'<div class="main">'+renderBuilder()+'</div>'; bindBuilder(); bindNav(); return; }
+  if(UI.view==="builder"){ const _bf=getFunnel(UI.funnelId);
+    if(_bf&&_bf.type==="html"){ root.innerHTML=sidebar()+'<div class="main">'+renderHtmlBuilder(_bf)+'</div>'; bindNav(); bindHtmlBuilder(_bf); return; }
+    root.innerHTML=sidebar()+'<div class="main">'+renderBuilder()+'</div>'; bindBuilder(); bindNav(); return; }
   let body="";
   switch(UI.view){
     case "dashboard": body=renderDashboard(); break;
@@ -753,7 +793,7 @@ function funnelStats(funnelId, range){
 function renderDashboard(){
   const s=funnelStats(null,UI.range);
   const totalLeads=DB.leads.length;
-  let html='<div class="topbar"><h1>Dashboard</h1><div class="flex gap center"><button class="btn primary" data-oneshot>⚡ Recruiting One-Shot</button>'+rangeSelector()+'</div></div><div class="content">';
+  let html='<div class="topbar"><h1>Dashboard</h1><div class="flex gap center"><button class="btn" data-oneshot>⚡ Recruiting One-Shot</button><button class="btn primary" data-new-funnel>+ Neuer Funnel</button>'+rangeSelector()+'</div></div><div class="content">';
   html+='<div class="grid cards">'
     + kpi("Funnels gesamt", DB.funnels.length, DB.funnels.filter(f=>f.published).length+" veröffentlicht")
     + kpi("Funnel-Starts", s.starts, "im Zeitraum")
@@ -793,7 +833,7 @@ function rangeSelector(){
 }
 function bindDashboard(){
   document.querySelectorAll("[data-range]").forEach(b=>b.onclick=()=>{UI.range=b.getAttribute("data-range");render();});
-  const nf=document.querySelector("[data-new-funnel]"); if(nf) nf.onclick=openNewFunnelModal;
+  document.querySelectorAll("[data-new-funnel]").forEach(b=>b.onclick=openCreateChooser);
   document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openBuilder(b.getAttribute("data-edit")));
   document.querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>startPlayer(b.getAttribute("data-play")));
   document.querySelectorAll("[data-analytics]").forEach(b=>b.onclick=()=>{UI.view="analytics";UI.analyticsFunnel=b.getAttribute("data-analytics");render();});
@@ -824,7 +864,7 @@ function renderFunnels(){
   return html;
 }
 function bindFunnels(){
-  document.querySelectorAll("[data-new-funnel]").forEach(b=>b.onclick=openNewFunnelModal);
+  document.querySelectorAll("[data-new-funnel]").forEach(b=>b.onclick=openCreateChooser);
   document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openBuilder(b.getAttribute("data-edit")));
   document.querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>startPlayer(b.getAttribute("data-play")));
   document.querySelectorAll("[data-dup]").forEach(b=>b.onclick=()=>{
@@ -840,9 +880,28 @@ function bindFunnels(){
     });
   });
 }
+function openCreateChooser(){
+  showModal('<h3>Neuen Funnel erstellen</h3>'
+    +'<p class="muted" style="font-size:13px;margin-top:-6px">Welche Art von Seite möchtest du bauen?</p>'
+    +'<div class="split" style="margin-top:6px">'
+    +'<div class="card choose-card" id="choose-classic" style="cursor:pointer">'
+      +'<div style="font-size:22px;line-height:1;margin-bottom:8px">🧱</div>'
+      +'<strong style="display:block;margin-bottom:4px">Standard Perspective</strong>'
+      +'<p class="muted" style="font-size:12.5px;line-height:1.6;margin:0">Klassischer Schritt-für-Schritt-Funnel mit Baukasten – Blöcke per Drag-and-drop, Quiz &amp; Formular. Ideal für Bewerbungs- und Quiz-Funnels.</p>'
+    +'</div>'
+    +'<div class="card choose-card" id="choose-html" style="cursor:pointer">'
+      +'<div style="font-size:22px;line-height:1;margin-bottom:8px">✨</div>'
+      +'<strong style="display:block;margin-bottom:4px">Modern Full-HTML <span class="badge" style="background:rgba(124,92,255,.16);color:#b9a8ff;vertical-align:middle">KI</span></strong>'
+      +'<p class="muted" style="font-size:12.5px;line-height:1.6;margin:0">Eine komplette, moderne Landingpage in einem Stück – von KI gestaltet. Du beschreibst dein Angebot, die KI stellt dir ein paar Fragen und baut die Seite. Kein eigener Key nötig.</p>'
+    +'</div>'
+    +'</div>'
+    +'<div class="actions"><button class="btn ghost" data-close>Abbrechen</button></div>');
+  document.getElementById("choose-classic").onclick=()=>openNewFunnelModal();
+  document.getElementById("choose-html").onclick=()=>openHtmlGenModal();
+}
 function openNewFunnelModal(){
   const opts=Object.keys(TEMPLATES).map(k=>'<option value="'+k+'">'+esc(TEMPLATES[k].name)+'</option>').join("");
-  showModal('<h3>Neuen Funnel erstellen</h3>'
+  showModal('<h3>Standard Perspective – Vorlage wählen</h3>'
     +'<div class="field"><label>Name</label><input id="nf-name" value="Mein Funnel"></div>'
     +'<div class="field"><label>Vorlage</label><select id="nf-tpl">'+opts+'</select>'
     +'<div class="hint">Tipp: Die „Recruiting:"-Vorlagen sind fertige Bewerbungs-Funnels – nur Texte anpassen.</div></div>'
@@ -891,6 +950,7 @@ function saStartPlayer(){ PLAYER.stepIndex=0;PLAYER.score=0;PLAYER.answers={};PL
   saRenderPlayer(); }
 function saRenderPlayer(){ var f=FUNNEL, step=f.steps[PLAYER.stepIndex];
   (PLAYER.timers||[]).forEach(function(t){clearInterval(t);}); PLAYER.timers=[];
+  PLAYER.shown=PLAYER.shown||{}; if(!PLAYER.shown[step.id]){ PLAYER.shown[step.id]=true; if(step.logic&&step.logic.showEvent&&typeof pixelTrackCustom==="function") pixelTrackCustom(f,step.logic.showEvent); }
   var c=f.settings.primaryColor||"#4f7cff", exp=f.settings.style==="express";
   var inner=""; if(exp){ if(step.meta&&step.meta.qlabel) inner+='<div class="r-qbar" style="background:'+esc(c)+'">'+esc(step.meta.qlabel)+'</div>'; }
   else inner+='<div class="r-progress"><div style="width:'+((PLAYER.stepIndex+1)/f.steps.length*100)+'%"></div></div>';
@@ -902,8 +962,15 @@ function saRenderPlayer(){ var f=FUNNEL, step=f.steps[PLAYER.stepIndex];
   bindPlayerStep(f,step); }
 function exportStandalone(funnelId){
   const f=getFunnel(funnelId); if(!f) return;
+  if(f.type==="html"){
+    const out=injectIntoHtml(f.html||"", htmlStandaloneRuntime(f));
+    const blob=new Blob([out],{type:"text/html"}); const a=document.createElement("a");
+    a.href=URL.createObjectURL(blob); a.download=(f.name||"seite").replace(/\W+/g,"_")+".html"; a.click();
+    showModal('<h3>Standalone-Seite exportiert ✅</h3><p class="muted" style="font-size:13px">Die fertige HTML-Datei wurde heruntergeladen – inkl. Pixel & Webhook-Lead-Versand. Lade sie auf eigenes Hosting/eigene Domain (z.B. Netlify Drop).</p><div class="actions"><button class="btn primary" data-close>Verstanden</button></div>');
+    return;
+  }
   const css=(document.querySelector("style")||{}).textContent||"";
-  const helpers=[esc,pad2,uid,now,personalize,shade,brandGradient,ctaBg,safeUrl,pickTier,fieldInputHTML,fieldRowHTML,richBlockHTML,renderPlayerBlock,confetti,downloadICS,detectDevice,captureParams,recomputeScore,injectPixel,pixelTrack,bindPlayerStep,gotoNext,finishFunnel,saveLead,validatePlayerForm,saStartPlayer,saRenderPlayer];
+  const helpers=[esc,pad2,uid,now,personalize,shade,brandGradient,ctaBg,safeUrl,pickTier,fieldInputHTML,fieldRowHTML,richBlockHTML,renderPlayerBlock,confetti,downloadICS,detectDevice,captureParams,recomputeScore,injectPixel,pixelTrack,pixelTrackCustom,bindPlayerStep,gotoNext,finishFunnel,saveLead,validatePlayerForm,saStartPlayer,saRenderPlayer];
   const fnSrc=helpers.map(fn=>fn.toString()).join("\n");
   const saCss="body{margin:0;background:radial-gradient(1100px 560px at 50% -8%,#1b2233 0%,#0b0d11 62%);min-height:100vh}"
     +".sa-stage{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:24px}"
@@ -1039,7 +1106,9 @@ function renderBuilder(){
   // step logic
   if(step){
     html+='<h4>Schritt-Logik</h4><div class="props"><div class="field"><label>Standard "Weiter" führt zu</label>'
-      +stepTargetSelect(f,step,step.logic.defaultNext,"step-default-next")+'</div></div>';
+      +stepTargetSelect(f,step,step.logic.defaultNext,"step-default-next")+'</div>'
+      +'<div class="field"><label>Pixel-Event bei Anzeige (optional)</label><input id="step-show-event" type="text" value="'+esc(step.logic.showEvent||"")+'" placeholder="z.B. Schritt2_gesehen"></div>'
+      +'<div class="hint">Feuert automatisch an Meta/GA4/TikTok, sobald dieser Schritt angezeigt wird.</div></div>';
   }
   html+='</div></div>';
   return html;
@@ -1162,7 +1231,9 @@ function renderProps(f,step){
         +'<option value="end"'+(bl.action==="end"?" selected":"")+'>Funnel beenden</option>'
         +'<option value="url"'+(bl.action==="url"?" selected":"")+'>Externe URL öffnen</option>'
         +'<option value="ics"'+(bl.action==="ics"?" selected":"")+'>Kalender-Eintrag (.ics)</option></select></div>'
-        +inp("p-url","URL (bei Aktion = URL)",bl.url||""); break;
+        +inp("p-url","URL (bei Aktion = URL)",bl.url||"")
+        +inp("p-event","Pixel-Event bei Klick (optional)",bl.event||"")
+        +'<div class="hint">z.B. Bewerbung_geklickt — feuert an Meta/GA4/TikTok.</div>'; break;
     case "choice":
       h+=tA("p-q","Frage",bl.question)
         +'<label class="switch field"><input type="checkbox" id="p-multi" '+(bl.multi?"checked":"")+'> Mehrfachauswahl</label>'
@@ -1229,22 +1300,39 @@ function alignSel(id,val){
     +["left","center","right"].map(a=>'<option value="'+a+'"'+(val===a?" selected":"")+'>'+a+'</option>').join("")+'</select></div>';
 }
 function aiBtnRow(){ return '<div class="flex gap" style="margin:-4px 0 10px"><button class="btn sm" id="p-ai-rw">✨ Umschreiben</button><button class="btn sm" id="p-ai-tr">🌍 EN</button></div>'; }
-async function aiText(prompt){
-  const cfg=DB.aiConfig||{}; if(!cfg.apiKey) throw new Error("no-key");
-  if(cfg.provider==="anthropic"){
-    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":cfg.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:cfg.model||"claude-3-5-haiku-20241022",max_tokens:500,messages:[{role:"user",content:prompt}]})});
-    if(!res.ok) throw new Error("api "+res.status); const d=await res.json(); return ((d.content&&d.content[0]&&d.content[0].text)||"").trim();
-  } else {
-    const res=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+cfg.apiKey},body:JSON.stringify({model:cfg.model||"gpt-4o-mini",temperature:0.7,messages:[{role:"user",content:prompt}]})});
-    if(!res.ok) throw new Error("api "+res.status); const d=await res.json(); return ((d.choices&&d.choices[0]&&d.choices[0].message.content)||"").trim();
+/* ---- Claude-Zugang ----------------------------------------------------------
+   Standard: sicherer Netlify-Proxy (/.netlify/functions/ai) — Nicos Key liegt in
+   Netlify, Kunden brauchen KEINEN eigenen Key. Hat ein Kunde (fortgeschritten)
+   doch einen eigenen Anthropic-Key hinterlegt, wird der direkt genutzt.
+   Gibt das rohe Anthropic-Antwortobjekt zurück. */
+const AI_PROXY_URL = "/.netlify/functions/ai";
+async function anthropicJSON(body){
+  const cfg=DB.aiConfig||{};
+  if(cfg.provider==="anthropic" && cfg.apiKey){
+    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":cfg.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify(body)});
+    if(!res.ok) throw new Error("KI "+res.status);
+    return res.json();
   }
+  let res;
+  try{ res=await fetch(AI_PROXY_URL,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)}); }
+  catch(e){ throw new Error("KI-Proxy nicht erreichbar – läuft die App schon live auf Netlify?"); }
+  if(!res.ok){
+    if(res.status===429) throw new Error("Zu viele KI-Anfragen gerade – bitte kurz warten.");
+    if(res.status===404) throw new Error("KI-Proxy nicht gefunden – erst auf Netlify deployen (oder eigenen Key hinterlegen).");
+    throw new Error("KI nicht erreichbar ("+res.status+")");
+  }
+  return res.json();
+}
+function aiTextFromResp(d){ return ((d&&d.content&&d.content[0]&&d.content[0].text)||"").trim(); }
+async function aiText(prompt){
+  const d=await anthropicJSON({model:"claude-3-5-haiku-20241022",max_tokens:500,messages:[{role:"user",content:prompt}]});
+  return aiTextFromResp(d);
 }
 async function blockAI(bl,instruction){
-  if(!(DB.aiConfig&&DB.aiConfig.apiKey)){ toast("Erst KI-Key im One-Shot-Fenster hinterlegen"); return; }
   const cur=bl.text||""; if(!cur){ toast("Kein Text vorhanden"); return; }
   toast("KI arbeitet…");
   try{ const out=await aiText(instruction+cur); if(out){ bl.text=out; saveDB(); render(); toast("KI fertig ✓"); } }
-  catch(e){ toast("KI nicht erreichbar ("+e.message+")"); }
+  catch(e){ toast(e.message||"KI nicht erreichbar"); }
 }
 function stepTargetSelectInline(f,curStep,val,optIndex){
   let o='<option value="next"'+(val==="next"?" selected":"")+'>weiter</option>';
@@ -1271,7 +1359,7 @@ function bindBuilder(){
     f.published=true; saveDB();
     showModal('<h3>Funnel veröffentlicht ✅</h3><p class="muted">Dein Funnel ist jetzt auf "live" gesetzt. In diesem Prototyp läuft er lokal in deinem Browser.</p>'
       +'<div class="field"><label>Teilbarer Vorschau-Link (lokal)</label><code class="dns">'+esc(location.href.split("#")[0])+'#funnel='+f.id+'</code></div>'
-      +'<div class="notice">Für eine echte öffentliche URL verbinde unter <b>Domains</b> eine eigene Domain – die Anleitung dort zeigt die nötigen DNS-Einträge.</div>'
+      +'<div class="notice">Für eine echte öffentliche URL: unter <b>Domains</b> steht, wie du in Netlify eine eigene Domain verbindest.</div>'
       +'<div class="actions"><button class="btn primary" data-close>Verstanden</button></div>');
     render();
   };
@@ -1296,6 +1384,8 @@ function bindBuilder(){
   // step default next
   const sdn=document.getElementById("step-default-next");
   if(sdn&&step) sdn.onchange=()=>{ step.logic.defaultNext=sdn.value; saveDB(); render(); };
+  const sse=document.getElementById("step-show-event");
+  if(sse&&step) sse.onchange=()=>{ step.logic.showEvent=sse.value.trim(); saveDB(); };
 
   // block selection + delete + drag
   document.querySelectorAll("[data-block]").forEach(el=>{
@@ -1366,6 +1456,7 @@ function bindProps(f,step){
   on("p-alt",()=>{ bl.alt=v("p-alt"); });
   on("p-label",()=>{ if(bl.type==="form") bl.submitLabel=v("p-label"); else bl.label=v("p-label"); liveCanvas(f,step); });
   on("p-action",()=>{ bl.action=v("p-action"); });
+  on("p-event",()=>{ bl.event=v("p-event"); saveDB(); });
   on("p-min",()=>{ bl.minutes=parseInt(v("p-min"))||1; liveCanvas(f,step); });
   on("p-height",()=>{ bl.height=parseInt(v("p-height"))||10; liveCanvas(f,step); });
   on("p-amount",()=>{ bl.amount=v("p-amount"); liveCanvas(f,step); });
@@ -1482,7 +1573,9 @@ function applyFunnelFont(f){ const fam=f.settings.fontFamily; if(!fam) return; c
   if(!document.getElementById(id)){ const l=document.createElement("link"); l.id=id; l.rel="stylesheet";
     l.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(fam)+":wght@400;600;700;800&display=swap"; document.head.appendChild(l); } }
 function startPlayer(funnelId){
-  const f=getFunnel(funnelId); if(!f||f.steps.length===0){ toast("Funnel hat keine Schritte"); return; }
+  const f=getFunnel(funnelId); if(!f){ toast("Funnel nicht gefunden"); return; }
+  if(f.type==="html"){ renderHtmlPlayer(f); return; }
+  if(f.steps.length===0){ toast("Funnel hat keine Schritte"); return; }
   PLAYER.funnelId=funnelId; PLAYER.stepIndex=0; PLAYER.score=0; PLAYER.answers={}; PLAYER.points={}; PLAYER.history=[]; PLAYER.leadId=null; PLAYER.visited={};
   PLAYER.fields={}; PLAYER.utm=captureParams(); PLAYER.device=detectDevice();
   injectPixel(f); applyFunnelFont(f);
@@ -1529,12 +1622,20 @@ function pixelTrack(f, metaEvent, ga4Event, tiktokEvent, params){
   if(s.ga4 && window.gtag){ try{ window.gtag("event", ga4Event, params); }catch(e){} }
   if(s.tiktok && window.ttq){ try{ window.ttq.track(tiktokEvent, params); }catch(e){} }
 }
+/* fire a CUSTOM event name (assigned to a button or a step) on all platforms */
+function pixelTrackCustom(f, name){
+  if(!name) return; const s=f.settings||{}; name=String(name).trim(); if(!name) return;
+  if(s.metaPixel && window.fbq){ try{ window.fbq("trackCustom", name); }catch(e){} }
+  if(s.ga4 && window.gtag){ try{ window.gtag("event", name.toLowerCase().replace(/[^a-z0-9]+/g,"_")); }catch(e){} }
+  if(s.tiktok && window.ttq){ try{ window.ttq.track(name); }catch(e){} }
+}
 
 function renderPlayer(){
   const f=getFunnel(PLAYER.funnelId); const step=f.steps[PLAYER.stepIndex];
   (PLAYER.timers||[]).forEach(t=>clearInterval(t)); PLAYER.timers=[];
   // track view once per step per session
-  if(!PLAYER.visited[step.id]){ PLAYER.visited[step.id]=true; track(f.id,"view",{step:step.id}); }
+  if(!PLAYER.visited[step.id]){ PLAYER.visited[step.id]=true; track(f.id,"view",{step:step.id});
+    if(step.logic&&step.logic.showEvent) pixelTrackCustom(f,step.logic.showEvent); }
   const c=f.settings.primaryColor||"#4f7cff";
   const progress=((PLAYER.stepIndex+1)/f.steps.length*100);
   const exp=f.settings.style==="express";
@@ -1610,6 +1711,7 @@ function bindPlayerStep(f,step){
   document.querySelectorAll("#player-inner .play-btn").forEach(btn=>{
     btn.onclick=()=>{ track(f.id,"click",{step:step.id});
       const wrap=btn.closest("[data-pi]"); const bl=wrap?step.blocks[parseInt(wrap.getAttribute("data-pi"))]:null;
+      if(bl&&bl.event) pixelTrackCustom(f,bl.event);
       if(bl&&bl.type==="button"){
         if(bl.action==="url"){ const u=safeUrl(bl.url); if(u) window.open(u,"_blank","noopener,noreferrer"); return; }
         if(bl.action==="ics"){ downloadICS((f.meta&&f.meta.webinarTitle)||f.name,(f.meta&&f.meta.webinarDate)||"",60); return; }
@@ -1953,63 +2055,74 @@ function seedDemoData(){
    DOMAINS
    ============================================================ */
 function renderDomains(){
-  let html='<div class="topbar"><h1>Domains</h1><button class="btn primary" id="add-domain">+ Domain verbinden</button></div><div class="content">';
-  html+='<div class="notice">In diesem lokalen Prototyp wird die komplette Domain-Verwaltung als Oberfläche abgebildet. '
-    +'Die tatsächliche Schaltung erfolgt, sobald du den Funnel auf einem Server/Hosting deployst und die unten gezeigten DNS-Einträge bei deinem Domain-Anbieter setzt.</div>';
+  let html='<div class="topbar"><h1>Domains &amp; Veröffentlichen</h1><a class="btn primary" href="https://app.netlify.com/" target="_blank" rel="noopener noreferrer" style="text-decoration:none">🌐 In Netlify öffnen →</a></div><div class="content">';
+  html+='<div class="notice"><b>Ehrlich &amp; klar:</b> Eine eigene Domain wird <b>nicht</b> hier in FunnelForge geschaltet, sondern direkt in <b>Netlify</b> (dort wird die App gehostet). FunnelForge kann den echten Verbindungs-Status technisch nicht prüfen – den siehst du immer in Netlify. Diese Seite zeigt dir Schritt für Schritt, wie es geht.</div>';
+  html+='<div class="split" style="margin-top:14px">'
+    +'<div class="card"><h4 style="margin-top:0">A · Einen einzelnen Funnel auf eigene Domain</h4>'
+    +'<p class="muted" style="font-size:13px;line-height:1.7">Öffne den Funnel und klicke oben auf <b>🌐 (Standalone-HTML)</b>. Du erhältst eine fertige HTML-Datei. Zieh sie auf <b>Netlify Drop</b> und verbinde dort deine Domain. Meta/GA4/TikTok-Pixel und Lead-Webhook laufen dann echt auf deiner Domain.</p>'
+    +'<a class="btn sm" href="https://app.netlify.com/drop" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Netlify Drop öffnen →</a></div>'
+    +'<div class="card"><h4 style="margin-top:0">B · Die ganze FunnelForge-App auf eigene Domain</h4>'
+    +'<p class="muted" style="font-size:13px;line-height:1.7">In Netlify: <b>Site → Domain management → Add a domain</b>. Netlify zeigt dir die exakten DNS-Werte. Diese trägst du bei deinem Domain-Anbieter (IONOS, GoDaddy, Cloudflare) ein. SSL/HTTPS macht Netlify automatisch.</p>'
+    +'<div class="flex gap"><a class="btn sm primary" href="https://app.netlify.com/" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Netlify öffnen →</a><button class="btn sm" id="dns-ref">DNS-Einträge ansehen</button></div></div>'
+    +'</div>';
+  html+='<div class="card" style="margin-top:16px"><div class="flex between center"><h4 style="margin:0">Meine geplanten Domains</h4><button class="btn sm" id="add-domain">+ Domain notieren</button></div>'
+    +'<p class="muted" style="font-size:12px;margin:6px 0 10px">Reine Merkliste für dich – das verbindet nichts. Die echte Schaltung passiert in Netlify (siehe oben).</p>';
   if(DB.domains.length===0){
-    html+='<div class="card"><p class="muted">Noch keine Domain verbunden.</p><button class="btn primary" id="add-domain2">+ Domain verbinden</button></div>';
+    html+='<p class="muted" style="font-size:13px">Noch nichts notiert.</p>';
   }else{
     html+='<div class="grid cards">';
     DB.domains.forEach(d=>{
       const f=getFunnel(d.funnelId);
-      html+='<div class="card"><div class="flex between center"><strong>'+esc(d.domain)+'</strong>'
-        +(d.status==="connected"?'<span class="badge green">verbunden</span>':'<span class="badge warn">ausstehend</span>')+'</div>'
-        +'<div class="meta muted" style="font-size:12px;margin:6px 0">Funnel: '+esc(f?f.name:"—")+'</div>'
-        +'<div class="flex gap"><button class="btn sm" data-dns="'+d.id+'">DNS-Anleitung</button>'
-        +(d.status!=="connected"?'<button class="btn sm primary" data-verify="'+d.id+'">Verbindung prüfen</button>':'')
+      html+='<div class="card"><div class="flex between center"><strong>'+esc(d.domain)+'</strong><span class="badge gray">in Netlify zu verbinden</span></div>'
+        +'<div class="meta muted" style="font-size:12px;margin:6px 0">Für: '+esc(f?f.name:"—")+'</div>'
+        +'<div class="flex gap"><button class="btn sm" data-dns="'+d.id+'">DNS-Einträge</button>'
+        +'<a class="btn sm" href="https://app.netlify.com/" target="_blank" rel="noopener noreferrer" style="text-decoration:none">In Netlify öffnen →</a>'
         +'<button class="btn sm danger" data-domdel="'+d.id+'">Entfernen</button></div></div>';
     });
     html+='</div>';
   }
-  html+='</div>';
+  html+='</div></div>';
   return html;
 }
 function bindDomains(){
-  const a1=document.getElementById("add-domain"), a2=document.getElementById("add-domain2");
-  if(a1) a1.onclick=openAddDomain; if(a2) a2.onclick=openAddDomain;
+  const a1=document.getElementById("add-domain");
+  if(a1) a1.onclick=openAddDomain;
+  const ref=document.getElementById("dns-ref"); if(ref) ref.onclick=()=>showDNSRef();
   document.querySelectorAll("[data-dns]").forEach(b=>b.onclick=()=>showDNS(b.getAttribute("data-dns")));
-  document.querySelectorAll("[data-verify]").forEach(b=>b.onclick=()=>{
-    const d=DB.domains.find(x=>x.id===b.getAttribute("data-verify"));
-    b.textContent="Prüfe…"; b.disabled=true;
-    setTimeout(()=>{ d.status="connected"; saveDB(); render(); toast("Domain verbunden (simuliert)"); },1200);
-  });
   document.querySelectorAll("[data-domdel]").forEach(b=>b.onclick=()=>{ DB.domains=DB.domains.filter(x=>x.id!==b.getAttribute("data-domdel")); saveDB(); render(); });
 }
 function openAddDomain(){
-  if(DB.funnels.length===0){ toast("Erstelle zuerst einen Funnel"); return; }
-  const opts=DB.funnels.map(f=>'<option value="'+f.id+'">'+esc(f.name)+'</option>').join("");
-  showModal('<h3>Domain verbinden</h3>'
+  const opts='<option value="">— kein Funnel —</option>'+DB.funnels.map(f=>'<option value="'+f.id+'">'+esc(f.name)+'</option>').join("");
+  showModal('<h3>Domain notieren</h3>'
+    +'<p class="muted" style="font-size:12.5px">Nur eine Merkliste für dich. Verbunden wird die Domain danach in <b>Netlify</b> (Button „In Netlify öffnen").</p>'
     +'<div class="field"><label>Domain</label><input id="dom-name" placeholder="funnel.deine-domain.de"></div>'
-    +'<div class="field"><label>Mit Funnel verknüpfen</label><select id="dom-funnel">'+opts+'</select></div>'
-    +'<div class="actions"><button class="btn ghost" data-close>Abbrechen</button><button class="btn primary" id="dom-save">Hinzufügen</button></div>');
+    +'<div class="field"><label>Für welchen Funnel? (optional)</label><select id="dom-funnel">'+opts+'</select></div>'
+    +'<div class="actions"><button class="btn ghost" data-close>Abbrechen</button><button class="btn primary" id="dom-save">Notieren</button></div>');
   document.getElementById("dom-save").onclick=()=>{
     const name=document.getElementById("dom-name").value.trim().replace(/^https?:\/\//,"").replace(/\/.*$/,"");
     if(!name){ toast("Bitte Domain eingeben"); return; }
-    DB.domains.push({id:uid("dom"),domain:name,funnelId:document.getElementById("dom-funnel").value,status:"pending",createdAt:now()});
-    saveDB(); closeModal(); render(); toast("Domain hinzugefügt – jetzt DNS einrichten");
+    DB.domains.push({id:uid("dom"),domain:name,funnelId:document.getElementById("dom-funnel").value,status:"planned",createdAt:now()});
+    saveDB(); closeModal(); render(); toast("Domain notiert – verbinden in Netlify");
   };
+}
+function dnsInstructionsHTML(domain){
+  const isSub = !!domain && domain.split(".").length>2;
+  const sub = domain? domain.split(".")[0] : "funnel";
+  return '<p class="muted" style="font-size:13px">In <b>Netlify → Site → Domain management → Add a domain</b> die Domain hinzufügen. Netlify zeigt dir die exakten Werte – diese beim Domain-Anbieter (IONOS, GoDaddy, Cloudflare) eintragen. Typische Werte:</p>'
+    +(isSub
+      ? '<div class="field"><label>CNAME-Eintrag (Subdomain)</label><code class="dns">Typ: CNAME\nName: '+esc(sub)+'\nWert: deine-site.netlify.app</code></div>'
+      : '<div class="field"><label>A-Eintrag (Root-Domain)</label><code class="dns">Typ: A\nName: @\nWert: 75.2.60.5</code></div>'
+        +'<div class="field"><label>CNAME für www</label><code class="dns">Typ: CNAME\nName: www\nWert: deine-site.netlify.app</code></div>')
+    +'<div class="notice">Die <b>genauen</b> Werte stehen in Netlify (manchmal eine andere IP). SSL/HTTPS macht Netlify automatisch (Let\'s Encrypt). DNS-Änderungen brauchen bis zu 24h. Den echten Verbindungs-Status siehst du nur in Netlify.</div>';
 }
 function showDNS(domId){
   const d=DB.domains.find(x=>x.id===domId); if(!d) return;
-  const isSub = d.domain.split(".").length>2;
-  showModal('<h3>Domain verbinden: '+esc(d.domain)+'</h3>'
-    +'<p class="muted" style="font-size:13px">1) In <b>Netlify → Site → Domain management → Add custom domain</b> die Domain hinzufügen. 2) Dann beim Domain-Anbieter (IONOS, GoDaddy, Cloudflare) diese DNS-Einträge setzen:</p>'
-    +(isSub
-      ? '<div class="field"><label>CNAME-Eintrag (Subdomain)</label><code class="dns">Typ: CNAME\nName: '+esc(d.domain.split(".")[0])+'\nWert: deine-site.netlify.app</code></div>'
-      : '<div class="field"><label>A-Eintrag (Root-Domain) → Netlify Load Balancer</label><code class="dns">Typ: A\nName: @\nWert: 75.2.60.5</code></div>'
-        +'<div class="field"><label>CNAME für www</label><code class="dns">Typ: CNAME\nName: www\nWert: deine-site.netlify.app</code></div>')
-    +'<div class="notice">SSL/HTTPS stellt Netlify automatisch (Let\'s Encrypt). Propagation bis zu 24h. „Verbindung prüfen" ist hier nur eine lokale Markierung – den echten Status zeigt Netlify.</div>'
-    +'<div class="actions"><button class="btn primary" data-close>Schließen</button></div>');
+  showModal('<h3>DNS für: '+esc(d.domain)+'</h3>'+dnsInstructionsHTML(d.domain)
+    +'<div class="actions"><a class="btn" href="https://app.netlify.com/" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Netlify öffnen →</a><button class="btn primary" data-close>Schließen</button></div>');
+}
+function showDNSRef(){
+  showModal('<h3>DNS-Einträge (Referenz)</h3>'+dnsInstructionsHTML("")
+    +'<div class="actions"><a class="btn" href="https://app.netlify.com/" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Netlify öffnen →</a><button class="btn primary" data-close>Schließen</button></div>');
 }
 
 /* ============================================================
@@ -2024,14 +2137,14 @@ function renderHelp(){
     +'<li><b style="color:var(--txt)">Bauen</b> – Blöcke per Drag-&-Drop anordnen, Quiz-Logik & Verzweigungen pro Antwort setzen.</li>'
     +'<li><b style="color:var(--txt)">Tracking einrichten</b> – im Builder unter ⚙ Einstellungen Meta-Pixel-ID, GA4 und Webhook hinterlegen.</li>'
     +'<li><b style="color:var(--txt)">Veröffentlichen</b> – Funnel live schalten und Vorschau-Link teilen.</li>'
-    +'<li><b style="color:var(--txt)">Domain verbinden</b> – unter „Domains" eigene Domain hinzufügen, DNS-Anleitung folgen.</li>'
+    +'<li><b style="color:var(--txt)">Domain verbinden</b> – unter „Domains" steht, wie du deine Domain in Netlify verbindest.</li>'
     +'<li><b style="color:var(--txt)">Auswerten</b> – unter „Analytics" Starts, Leads, Conversion-Rate und Drop-off pro Schritt sehen.</li></ol></div>'
     +'<div class="split" style="margin-top:16px">'
     +'<div class="card"><h4 style="margin-top:0">✅ Voll funktionsfähig</h4><ul class="muted" style="line-height:1.8">'
     +'<li>Drag-&-Drop Builder mit 9 Blocktypen</li><li>Quiz-Scoring & Antwort-Verzweigung</li><li>Lead-Erfassung + CSV-Export</li>'
     +'<li>Live KPI-Tracking & Drop-off-Analyse</li><li>Meta-Pixel-Injection (PageView/Lead)</li><li>Webhook-POST an Zapier/Make</li></ul></div>'
     +'<div class="card"><h4 style="margin-top:0">🔧 Braucht später Hosting</h4><ul class="muted" style="line-height:1.8">'
-    +'<li>Echte öffentliche URL & SSL</li><li>DNS-Schaltung der Domain (UI ist fertig)</li>'
+    +'<li>Echte öffentliche URL & SSL</li><li>DNS-Schaltung der Domain (in Netlify)</li>'
     +'<li>Serverseitiges Pixel-Forwarding (Conversion API)</li><li>Mehrbenutzer-/Agentur-Accounts</li></ul>'
     +'<p class="muted" style="font-size:12px">Diese Punkte sind als Oberfläche vorbereitet und aktivieren sich beim Deployment.</p></div></div>'
     +'<div style="margin-top:16px"><button class="btn" id="reset-all">⚠ Alle Daten zurücksetzen</button></div>'
@@ -2108,24 +2221,9 @@ function buildAIPrompt(o){
     +'"form_headline":"","form_intro":"","form_submit":"","thankyou_headline":"","thankyou_text":""}';
 }
 async function aiRewrite(o){
-  const cfg=DB.aiConfig||{};
-  if(!cfg.apiKey) throw new Error("no-key");
   const prompt=buildAIPrompt(o);
-  let text="";
-  if(cfg.provider==="anthropic"){
-    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
-      headers:{"content-type":"application/json","x-api-key":cfg.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body:JSON.stringify({model:cfg.model||"claude-3-5-haiku-20241022",max_tokens:1600,messages:[{role:"user",content:prompt}]})});
-    if(!res.ok) throw new Error("api "+res.status);
-    const data=await res.json(); text=(data.content&&data.content[0]&&data.content[0].text)||"";
-  }else{
-    const res=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
-      headers:{"content-type":"application/json","authorization":"Bearer "+cfg.apiKey},
-      body:JSON.stringify({model:cfg.model||"gpt-4o-mini",temperature:0.7,response_format:{type:"json_object"},
-        messages:[{role:"system",content:"Du bist Experte für deutsches Recruiting-Copywriting. Antworte nur mit gültigem JSON."},{role:"user",content:prompt}]})});
-    if(!res.ok) throw new Error("api "+res.status);
-    const data=await res.json(); text=(data.choices&&data.choices[0]&&data.choices[0].message.content)||"";
-  }
+  const d=await anthropicJSON({model:"claude-3-5-haiku-20241022",max_tokens:1600,messages:[{role:"user",content:prompt}]});
+  let text=aiTextFromResp(d);
   text=text.replace(/^```(json)?/i,"").replace(/```$/,"").trim();
   return JSON.parse(text);
 }
@@ -2336,23 +2434,9 @@ function mergeExpressCopy(ai, base){
   return out;
 }
 async function aiRewriteExpress(o){
-  const cfg=DB.aiConfig||{};
-  if(!cfg.apiKey) throw new Error("no-key");
-  const prompt=buildExpressAIPrompt(o); let text="";
-  if(cfg.provider==="anthropic"){
-    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
-      headers:{"content-type":"application/json","x-api-key":cfg.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
-      body:JSON.stringify({model:cfg.model||"claude-3-5-haiku-20241022",max_tokens:2200,messages:[{role:"user",content:prompt}]})});
-    if(!res.ok) throw new Error("api "+res.status);
-    const data=await res.json(); text=(data.content&&data.content[0]&&data.content[0].text)||"";
-  }else{
-    const res=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
-      headers:{"content-type":"application/json","authorization":"Bearer "+cfg.apiKey},
-      body:JSON.stringify({model:cfg.model||"gpt-4o-mini",temperature:0.7,response_format:{type:"json_object"},
-        messages:[{role:"system",content:"Du bist Experte für deutsches Recruiting-Copywriting. Antworte nur mit gültigem JSON."},{role:"user",content:prompt}]})});
-    if(!res.ok) throw new Error("api "+res.status);
-    const data=await res.json(); text=(data.choices&&data.choices[0]&&data.choices[0].message.content)||"";
-  }
+  const prompt=buildExpressAIPrompt(o);
+  const d=await anthropicJSON({model:"claude-3-5-haiku-20241022",max_tokens:2200,messages:[{role:"user",content:prompt}]});
+  let text=aiTextFromResp(d);
   text=text.replace(/^```(json)?/i,"").replace(/```$/,"").trim();
   return JSON.parse(text);
 }
@@ -2485,11 +2569,9 @@ function openOneShotModal(){
     const base=generateExpressCopy(o);
     const goBtn=document.getElementById("os-go"); const status=document.getElementById("os-status");
     let copy=base;
-    if(DB.aiConfig.apiKey){
-      goBtn.disabled=true; goBtn.textContent="KI schreibt Texte…"; status.textContent="Verbinde mit KI…";
-      try{ const ai=await aiRewriteExpress(o); copy=mergeExpressCopy(ai, base); status.innerHTML='<span style="color:var(--good)">KI-Texte erstellt ✓</span>'; }
-      catch(e){ copy=base; status.innerHTML='<span style="color:var(--warn)">KI nicht erreichbar ('+esc(e.message)+') – eingebaute Vorlagen verwendet.</span>'; }
-    }
+    goBtn.disabled=true; goBtn.textContent="KI schreibt Texte…"; status.textContent="Verbinde mit KI…";
+    try{ const ai=await aiRewriteExpress(o); copy=mergeExpressCopy(ai, base); status.innerHTML='<span style="color:var(--good)">KI-Texte erstellt ✓</span>'; }
+    catch(e){ copy=base; status.innerHTML='<span style="color:var(--warn)">KI nicht erreichbar ('+esc(e.message)+') – eingebaute Vorlagen verwendet.</span>'; }
     const f=buildExpressFunnel(o, copy);
     DB.funnels.push(f); saveDB();
     closeModal();
@@ -2501,6 +2583,216 @@ function openOneShotModal(){
 /* ============================================================
    MODALS
    ============================================================ */
+/* ============================================================
+   KI-HTML LANDING PAGES (generate / edit / play / export)
+   ============================================================ */
+const HTMLEDIT={ visual:false };
+async function aiHtml(system, user){
+  const d=await anthropicJSON({model:"claude-3-5-sonnet-20241022",max_tokens:8000,system:system,messages:[{role:"user",content:user}]});
+  let text=aiTextFromResp(d);
+  text=text.trim().replace(/^```html\s*/i,"").replace(/^```\s*/,"").replace(/```\s*$/,"").trim();
+  const m=text.match(/<!DOCTYPE[\s\S]*<\/html>/i)||text.match(/<html[\s\S]*<\/html>/i);
+  return m?m[0]:text;
+}
+function htmlDesignSystem(style){
+  const base="Du bist ein Weltklasse-Conversion-Designer und Senior-Frontend-Entwickler. Du baust EINE komplette, in sich geschlossene HTML-Landeseite (eine Datei, alles inline im <style>, ausser optional Google Fonts via <link>). "
+   +"Pflicht-Regeln: mobile-first und voll responsive; grosszuegiger Weissraum; klare visuelle Hierarchie; ein klares, sich wiederholendes CTA; Above-the-fold-Hero mit starker Headline (clamp 32-60px), Subline und CTA; mind. diese Abschnitte: Hero, Problem/Schmerz, Loesung/Nutzen (Karten mit Icons/Emoji), Social Proof (Testimonials + Zahlen), Angebot/Benefits, FAQ (<details>), finaler CTA, Footer. "
+   +"Designsystem: Farbpalette aus der Brandfarbe ableiten (helle/dunkle Abstufungen), abgerundete Ecken 14-20px, weiche Schatten, moderne Typo-Skala, Zeilenhoehe 1.5-1.7, konsistente Abstaende (Sektionen 64-96px Padding). Sticky-CTA-Leiste am unteren Rand auf Mobil ist ein Plus. "
+   +"Inhalte: ECHTE, ueberzeugende deutsche Beispieltexte (kein Lorem Ipsum), konkret und verkaufsstark. Baue ein funktionierendes Lead-Formular mit <form> und Feldern name, email, telefon. "
+   +"Bilder: nutze CSS-Gradients, SVG-Formen oder Emoji statt externer Foto-URLs (die koennten 404 sein). "
+   +"Gib AUSSCHLIESSLICH vollstaendiges HTML zurueck, beginnend mit <!DOCTYPE html> und endend mit </html>. Keine Erklaerungen, kein Markdown, keine Code-Fences.";
+  const styles={
+    bold:"Stilrichtung: BOLD & CONVERSION — kraeftige Brand-Farbflaechen, grosse fette Headlines, Badge/Pills, Urgency (Countdown oder begrenzte Plaetze), viel Social Proof, sehr kontraststarke CTAs.",
+    clean:"Stilrichtung: MODERN & CLEAN — viel Weissraum, grosse ruhige Typografie, dezente Akzente, feine 1px-Linien, Apple/Linear-Aesthetik.",
+    premium:"Stilrichtung: PREMIUM / EDITORIAL — elegante Serif-Headlines kombiniert mit Sans-Body, edle Farbpalette, sehr grosszuegige Abstaende, magazinartiges Layout."
+  };
+  return base+" "+(styles[style]||styles.bold);
+}
+function htmlUserPrompt(o){
+  return "Baue eine hochkonvertierende Landeseite auf Deutsch.\n"
+   +"Marke/Name: "+(o.brand||"")+"\nZiel / Angebot: "+(o.goal||"")+"\nZielgruppe: "+(o.audience||"")+"\nBranche: "+(o.industry||"")+"\nBrandfarbe (Primaer): "+(o.color||"#4f7cff")+"\n"
+   +"Setze alle Pflicht-Abschnitte um, mit konkreten, ueberzeugenden Texten und einem Lead-Formular. Liefere nur die fertige HTML-Seite.";
+}
+function htmlLeadScript(){
+  return '<script>(function(){function c(f){var d={};f.querySelectorAll("input,select,textarea").forEach(function(e){if(e.name&&e.type!=="submit"&&e.type!=="button")d[e.name]=e.value;});return d;}document.addEventListener("submit",function(e){var f=e.target;if(f&&f.tagName==="FORM"){e.preventDefault();try{parent.postMessage({__ff:"lead",data:c(f)},"*");}catch(x){}var t=document.createElement("div");t.style.cssText="position:fixed;left:0;right:0;bottom:0;padding:16px;background:#16a34a;color:#fff;text-align:center;font-family:sans-serif;font-weight:600;z-index:99999";t.textContent="\\u2705 Danke! Deine Anfrage ist eingegangen.";document.body.appendChild(t);setTimeout(function(){t.remove();},4000);try{f.reset();}catch(x){}}},true);try{parent.postMessage({__ff:"view"},"*");}catch(x){}})();<\/script>';
+}
+function injectIntoHtml(html, extra){ html=html||""; return /<\/body>/i.test(html)? html.replace(/<\/body>/i, extra+"</body>") : html+extra; }
+function htmlStandaloneRuntime(f){
+  const s=f.settings||{}; const cfg=JSON.stringify({pixel:s.metaPixel||"",ga4:s.ga4||"",tiktok:s.tiktok||"",webhook:s.webhook||"",name:f.name||""});
+  return '<script>(function(){var C='+cfg+';'
+   +'if(C.pixel){!function(n,t){if(n.fbq)return;var q=n.fbq=function(){q.callMethod?q.callMethod.apply(q,arguments):q.queue.push(arguments)};n._fbq||(n._fbq=q);q.push=q;q.loaded=!0;q.version="2.0";q.queue=[];var e=t.createElement("script");e.async=!0;e.src="https://connect.facebook.net/en_US/fbevents.js";var s=t.getElementsByTagName("script")[0];s.parentNode.insertBefore(e,s)}(window,document);try{fbq("init",C.pixel);fbq("track","PageView");fbq("track","ViewContent");}catch(x){}}'
+   +'if(C.ga4){var g=document.createElement("script");g.async=1;g.src="https://www.googletagmanager.com/gtag/js?id="+C.ga4;document.head.appendChild(g);window.dataLayer=window.dataLayer||[];window.gtag=function(){dataLayer.push(arguments)};gtag("js",new Date());gtag("config",C.ga4);}'
+   +'function col(f){var d={};f.querySelectorAll("input,select,textarea").forEach(function(e){if(e.name&&e.type!=="submit"&&e.type!=="button")d[e.name]=e.value});return d;}'
+   +'document.addEventListener("submit",function(e){var f=e.target;if(f&&f.tagName==="FORM"){e.preventDefault();var d=col(f);try{if(C.pixel)fbq("track","Lead");}catch(x){}try{if(C.ga4)gtag("event","generate_lead");}catch(x){}if(C.webhook){try{fetch(C.webhook,{method:"POST",headers:{"Content-Type":"application/json"},mode:"no-cors",body:JSON.stringify({funnel:C.name,data:d,ts:Date.now()})});}catch(x){}}var t=document.createElement("div");t.style.cssText="position:fixed;left:0;right:0;bottom:0;padding:16px;background:#16a34a;color:#fff;text-align:center;font-family:sans-serif;font-weight:600;z-index:99999";t.textContent="\\u2705 Danke! Deine Anfrage ist eingegangen.";document.body.appendChild(t);try{f.reset();}catch(x){}}},true);'
+   +'})();<\/script>';
+}
+function renderHtmlPlayer(f){
+  injectPixel(f); track(f.id,"start",{device:detectDevice(),hour:new Date().getHours()});
+  pixelTrack(f,"ViewContent","view_content","ViewContent",{content_name:f.name});
+  const srcdoc=injectIntoHtml(f.html||"<!DOCTYPE html><html><body style='font-family:sans-serif;padding:40px;text-align:center'><h1>Leere Seite</h1></body></html>", htmlLeadScript());
+  const root=document.getElementById("player-root");
+  root.innerHTML='<div class="player-overlay"><div class="player-bar"><div class="flex center gap"><span class="badge gray">Vorschau</span><strong>'+esc(f.name)+'</strong></div>'
+    +'<button class="btn sm" id="player-close">✕ Schliessen</button></div>'
+    +'<iframe id="html-player" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox" style="flex:1;width:100%;border:0;background:#fff"></iframe></div>';
+  const fr=document.getElementById("html-player"); fr.srcdoc=srcdoc;
+  document.getElementById("player-close").onclick=closePlayer;
+  if(window.__ffMsg) window.removeEventListener("message", window.__ffMsg);
+  window.__ffMsg=function(ev){ if(ev&&ev.data&&ev.data.__ff==="lead") saveLeadData(f, ev.data.data||{}); };
+  window.addEventListener("message", window.__ffMsg);
+}
+function saveLeadData(f, data){
+  const lead={ id:uid("ld"), funnelId:f.id, funnelName:f.name, data:data, score:0, answers:{}, status:"new", utm:captureParams(), device:detectDevice(), createdAt:now() };
+  DB.leads.push(lead); saveDB(); track(f.id,"lead",{leadId:lead.id,device:detectDevice()});
+  if(f.settings.confetti!==false) confetti();
+  pixelTrack(f,"Lead","generate_lead","SubmitForm",{content_name:f.name});
+  if(f.settings.webhook && /^https:\/\//i.test(f.settings.webhook)){ try{ fetch(f.settings.webhook,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(lead),mode:"no-cors"}); }catch(e){} }
+  toast("Lead erfasst ✓");
+}
+/* ---- KI-HTML Wizard: „KI fragt Schritt für Schritt" ----
+   Schritt 1: Angebot in 1-2 Sätzen. Schritt 2: KI stellt 3 passende Fragen
+   mit anklickbaren Antworten. Dann baut die KI die Seite. Kein Kunden-Key nötig
+   (läuft über den Netlify-Proxy). Robust: bei KI-Problemen Standardfragen. */
+let HGW = null;
+function openHtmlGenModal(){
+  HGW = { name:"KI-Landeseite", offer:"", style:"bold", color:"#4f7cff", audience:"", industry:"", questions:[], answers:[] };
+  hgwStep1();
+}
+function hgwStep1(){
+  showModal('<h3>✨ Neue KI-Seite — Schritt 1 von 2</h3>'
+    +'<p class="muted" style="font-size:13px;margin-top:-6px">Beschreib in 1–2 Sätzen, worum es geht. Die KI stellt dir gleich ein paar passende Fragen und baut daraus deine Seite. Kein eigener Key nötig.</p>'
+    +'<div class="field"><label>Worum geht\'s? *</label><textarea id="hgw-offer" rows="3" placeholder="z.B. Ich suche examinierte Pflegekräfte in Vollzeit für unser Seniorenheim in München – unbefristet, faire Bezahlung, tolles Team.">'+esc(HGW.offer)+'</textarea></div>'
+    +'<div class="split"><div class="field"><label>Name (intern)</label><input id="hgw-name" value="'+esc(HGW.name)+'"></div>'
+    +'<div class="field"><label>Brandfarbe</label><input id="hgw-color" type="color" value="'+esc(HGW.color)+'" style="height:42px;padding:4px"></div></div>'
+    +'<div class="field"><label>Stil</label><select id="hgw-style">'
+      +'<option value="bold"'+(HGW.style==="bold"?" selected":"")+'>Bold & Conversion</option>'
+      +'<option value="clean"'+(HGW.style==="clean"?" selected":"")+'>Modern & Clean</option>'
+      +'<option value="premium"'+(HGW.style==="premium"?" selected":"")+'>Premium / Editorial</option></select></div>'
+    +'<div id="hgw-status" class="muted" style="font-size:12.5px;min-height:18px"></div>'
+    +'<div class="actions"><button class="btn ghost" data-close>Abbrechen</button><button class="btn primary" id="hgw-next">Weiter → KI stellt Fragen</button></div>');
+  document.getElementById("hgw-next").onclick=hgwGenQuestions;
+}
+async function hgwGenQuestions(){
+  const offer=(document.getElementById("hgw-offer").value||"").trim();
+  const st=document.getElementById("hgw-status");
+  if(!offer){ st.innerHTML='<span style="color:var(--bad)">Bitte kurz beschreiben, worum es geht.</span>'; return; }
+  HGW.offer=offer;
+  HGW.name=(document.getElementById("hgw-name").value||"KI-Landeseite").trim();
+  HGW.color=document.getElementById("hgw-color").value;
+  HGW.style=document.getElementById("hgw-style").value;
+  const btn=document.getElementById("hgw-next"); btn.disabled=true; btn.textContent="KI denkt nach…";
+  st.textContent="Die KI überlegt sich passende Fragen…";
+  const prompt="Du bist Conversion-Stratege. Ein Nutzer will eine Landingpage bauen. Sein Angebot: \""+offer+"\".\n"
+    +"Stelle GENAU 3 kurze, wichtige Rückfragen, deren Antworten die Seite deutlich besser machen (z.B. Zielgruppe, Hauptnutzen, größter Einwand, gewünschte Aktion/CTA). "
+    +"Gib zu jeder Frage 3-4 konkrete, anklickbare Antwort-Vorschläge, passend zum Angebot. Schätze außerdem Zielgruppe und Branche. "
+    +"Antworte AUSSCHLIESSLICH mit gültigem JSON in exakt dieser Struktur, ohne Markdown, ohne Erklärung:\n"
+    +'{"audience":"","industry":"","questions":[{"q":"","options":["","",""]},{"q":"","options":["","",""]},{"q":"","options":["","",""]}]}';
+  try{
+    const d=await anthropicJSON({model:"claude-3-5-haiku-20241022",max_tokens:900,messages:[{role:"user",content:prompt}]});
+    let text=aiTextFromResp(d).replace(/^```(json)?/i,"").replace(/```$/,"").trim();
+    const data=JSON.parse(text);
+    HGW.audience=data.audience||""; HGW.industry=data.industry||"";
+    HGW.questions=(data.questions||[]).slice(0,3).map(q=>({q:String(q.q||""),options:(q.options||[]).slice(0,4).map(String)})).filter(q=>q.q);
+    if(!HGW.questions.length) throw new Error("leer");
+  }catch(e){
+    HGW.questions=[
+      {q:"Wer ist deine wichtigste Zielgruppe?",options:["Privatkunden","Unternehmen / B2B","Bewerber:innen","Bestehende Kunden"]},
+      {q:"Was ist der größte Nutzen für sie?",options:["Zeit sparen","Geld sparen / verdienen","Sicherheit","Mehr Qualität / Status"]},
+      {q:"Was soll der Besucher tun?",options:["Formular ausfüllen","Termin buchen","Direkt kaufen","Anrufen / WhatsApp"]}
+    ];
+  }
+  HGW.answers=HGW.questions.map(()=>"");
+  hgwStep2();
+}
+function hgwStep2(){
+  let qhtml="";
+  HGW.questions.forEach((q,i)=>{
+    qhtml+='<div class="field"><label>'+esc(q.q)+'</label><div class="flex gap" style="flex-wrap:wrap">'
+      + q.options.map(o=>'<button type="button" class="btn sm hgw-chip" data-qi="'+i+'" data-val="'+esc(o)+'">'+esc(o)+'</button>').join("")
+      + '</div><input class="hgw-ans" data-ai="'+i+'" value="'+esc(HGW.answers[i]||"")+'" placeholder="… oder eigene Antwort" style="margin-top:6px"></div>';
+  });
+  showModal('<h3>✨ Neue KI-Seite — Schritt 2 von 2</h3>'
+    +'<p class="muted" style="font-size:13px;margin-top:-6px">'+(HGW.audience?('Zielgruppe (KI-Schätzung): <b>'+esc(HGW.audience)+'</b>. '):'')+'Klick die passenden Antworten an (oder schreib eigene). Dann baut die KI deine Seite.</p>'
+    +qhtml
+    +'<div id="hgw-status2" class="muted" style="font-size:12.5px;min-height:18px"></div>'
+    +'<div class="actions"><button class="btn ghost" id="hgw-back">← Zurück</button><button class="btn primary" id="hgw-build">✨ Seite generieren</button></div>');
+  document.querySelectorAll(".hgw-chip").forEach(b=>b.onclick=()=>{
+    const i=b.getAttribute("data-qi"); const inp=document.querySelector('.hgw-ans[data-ai="'+i+'"]'); if(inp) inp.value=b.getAttribute("data-val");
+    document.querySelectorAll('.hgw-chip[data-qi="'+i+'"]').forEach(c=>c.classList.remove("primary"));
+    b.classList.add("primary");
+  });
+  document.getElementById("hgw-back").onclick=hgwStep1;
+  document.getElementById("hgw-build").onclick=hgwBuild;
+}
+async function hgwBuild(){
+  const st=document.getElementById("hgw-status2");
+  document.querySelectorAll(".hgw-ans").forEach(inp=>{ HGW.answers[+inp.getAttribute("data-ai")]=inp.value.trim(); });
+  const qa=HGW.questions.map((q,i)=>"- "+q.q+" → "+(HGW.answers[i]||"(offen)")).join("\n");
+  const goal=HGW.offer+"\n\nZusätzliche Infos aus dem Dialog:\n"+qa;
+  const o={ brand:HGW.name||"KI-Landeseite", goal:goal, audience:HGW.answers[0]||HGW.audience||"", industry:HGW.industry||"", style:HGW.style, color:HGW.color };
+  const btn=document.getElementById("hgw-build"); btn.disabled=true; btn.textContent="KI baut deine Seite…";
+  st.textContent="Das dauert ~15–40 Sekunden, bitte warten…";
+  try{
+    const html=await aiHtml(htmlDesignSystem(o.style), htmlUserPrompt(o));
+    if(!html || !/<\/html>/i.test(html)){ st.innerHTML='<span style="color:var(--bad)">KI-Antwort unbrauchbar – bitte nochmal.</span>'; btn.disabled=false; btn.textContent="✨ Seite generieren"; return; }
+    const f=newFunnel(o.brand); f.type="html"; f.html=html; f.settings.primaryColor=o.color; f.meta={type:"html",style:o.style,goal:goal};
+    DB.funnels.push(f); saveDB(); closeModal(); toast("KI-Seite erstellt 🎉"); openBuilder(f.id);
+  }catch(e){ st.innerHTML='<span style="color:var(--bad)">KI-Fehler: '+esc(e.message)+'</span>'; btn.disabled=false; btn.textContent="✨ Seite generieren"; }
+}
+function renderHtmlBuilder(f){
+  let h='<div class="topbar"><div class="flex center gap">'
+    +'<button class="btn ghost" data-nav="funnels">← Zurück</button>'
+    +'<input id="fn-name" value="'+esc(f.name)+'" style="background:var(--panel2);border:1px solid var(--border);color:var(--txt);padding:8px 12px;border-radius:8px;font-weight:600;font-size:15px;width:230px">'
+    +'<span class="badge" style="background:rgba(124,92,255,.16);color:#b9a8ff">KI-HTML</span></div>'
+    +'<div class="flex gap center"><button class="btn" id="b-settings">⚙</button>'
+    +'<button class="btn" id="b-standalone" title="Standalone-HTML für eigene Domain">🌐</button>'
+    +'<button class="btn" id="b-preview">▶ Vorschau</button>'
+    +'<button class="btn primary" id="b-publish">'+(f.published?"Aktualisieren":"Veröffentlichen")+'</button></div></div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 340px;height:calc(100vh - 57px)">';
+  h+='<div style="background:#0b0d11;overflow:hidden"><iframe id="html-edit-frame" style="width:100%;height:100%;border:0;background:#fff"></iframe></div>';
+  h+='<div class="bcol" style="border-left:1px solid var(--border);overflow:auto;padding:14px">';
+  h+='<h4 style="margin:2px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">✨ Mit KI anpassen</h4>';
+  h+='<textarea id="html-ai" placeholder="z.B. Mach den Hero dunkler · füge Testimonials hinzu · ändere die Headline zu …" style="width:100%;min-height:88px;background:var(--panel2);border:1px solid var(--border);color:var(--txt);border-radius:9px;padding:10px;font-size:13px"></textarea>';
+  h+='<button class="btn primary" id="html-ai-go" style="width:100%;margin-top:8px">KI-Änderung anwenden</button>';
+  h+='<div id="html-ai-status" class="muted" style="font-size:12px;min-height:16px;margin-top:6px"></div>';
+  h+='<h4 style="margin:18px 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)">🎨 Visuell bearbeiten</h4>';
+  h+='<label class="switch" style="margin-bottom:10px"><input type="checkbox" id="html-visual"> Texte direkt anklicken & ändern</label>';
+  h+='<div class="muted" style="font-size:12px;margin-bottom:6px">Abschnitte (verschieben / löschen):</div><div id="html-sections"></div>';
+  h+='<button class="btn" id="html-save" style="width:100%;margin-top:12px">💾 Änderungen speichern</button>';
+  h+='<div class="muted" style="font-size:11px;margin-top:8px">Tipp: „Texte anklicken" ein → im Vorschaufenster direkt tippen. Danach speichern.</div>';
+  h+='</div></div>';
+  return h;
+}
+function bindHtmlBuilder(f){
+  const frame=document.getElementById("html-edit-frame"); if(!frame) return;
+  function saveFromFrame(){ try{ const doc=frame.contentDocument; if(doc&&doc.documentElement){ f.html="<!DOCTYPE html>\n"+doc.documentElement.outerHTML; saveDB(); } }catch(e){} }
+  function renderSectionList(){ const box=document.getElementById("html-sections"); if(!box) return; let doc; try{ doc=frame.contentDocument; }catch(e){ box.innerHTML=""; return; } if(!doc||!doc.body){ box.innerHTML=""; return; }
+    const secs=[...doc.body.children].filter(n=>n.tagName!=="SCRIPT");
+    box.innerHTML = secs.length? secs.map((s,i)=>{ const txt=(s.textContent||"").trim().replace(/\s+/g," ").slice(0,26); const label=(s.id||s.className||s.tagName.toLowerCase())+(txt?(" · "+txt):"");
+      return '<div class="opt-row" style="gap:4px"><span style="flex:1;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(label)+'">'+esc(label)+'</span><button class="icon-btn" data-su="'+i+'" title="hoch">↑</button><button class="icon-btn" data-sd="'+i+'" title="runter">↓</button><button class="icon-btn" data-sx="'+i+'" title="löschen">✕</button></div>'; }).join("") : '<div class="muted" style="font-size:12px">Keine Abschnitte erkannt.</div>';
+    box.querySelectorAll("[data-su]").forEach(b=>b.onclick=()=>{ const i=+b.getAttribute("data-su"); if(i>0){ secs[i].parentNode.insertBefore(secs[i],secs[i-1]); saveFromFrame(); renderSectionList(); } });
+    box.querySelectorAll("[data-sd]").forEach(b=>b.onclick=()=>{ const i=+b.getAttribute("data-sd"); if(i<secs.length-1){ secs[i].parentNode.insertBefore(secs[i+1],secs[i]); saveFromFrame(); renderSectionList(); } });
+    box.querySelectorAll("[data-sx]").forEach(b=>b.onclick=()=>{ const i=+b.getAttribute("data-sx"); secs[i].remove(); saveFromFrame(); renderSectionList(); });
+  }
+  frame.addEventListener("load",()=>{ try{ const doc=frame.contentDocument; if(doc) doc.designMode=HTMLEDIT.visual?"on":"off"; }catch(e){} renderSectionList(); });
+  frame.srcdoc = f.html || "<!DOCTYPE html><html><body style='font-family:sans-serif;padding:40px;text-align:center'><h1>Leere Seite</h1></body></html>";
+  const nm=document.getElementById("fn-name"); if(nm) nm.onchange=()=>{ f.name=nm.value.trim()||"KI-Seite"; saveDB(); };
+  const bs=document.getElementById("b-settings"); if(bs) bs.onclick=()=>openFunnelSettings(f.id);
+  const bp=document.getElementById("b-preview"); if(bp) bp.onclick=()=>{ saveFromFrame(); startPlayer(f.id); };
+  const bsa=document.getElementById("b-standalone"); if(bsa) bsa.onclick=()=>{ saveFromFrame(); exportStandalone(f.id); };
+  const pub=document.getElementById("b-publish"); if(pub) pub.onclick=()=>{ saveFromFrame(); f.published=true; saveDB(); toast("Veröffentlicht ✓"); render(); };
+  const vis=document.getElementById("html-visual"); if(vis) vis.onchange=()=>{ HTMLEDIT.visual=vis.checked; try{ frame.contentDocument.designMode=HTMLEDIT.visual?"on":"off"; }catch(e){} };
+  const sv=document.getElementById("html-save"); if(sv) sv.onclick=()=>{ saveFromFrame(); toast("Gespeichert ✓"); };
+  const go=document.getElementById("html-ai-go"), stt=document.getElementById("html-ai-status");
+  if(go) go.onclick=async ()=>{ const instr=(document.getElementById("html-ai").value||"").trim();
+    if(!instr){ stt.textContent="Bitte Änderung beschreiben."; return; }
+    saveFromFrame(); go.disabled=true; stt.textContent="KI arbeitet…";
+    try{ const html=await aiHtml(htmlDesignSystem((f.meta&&f.meta.style)||"bold"), "Hier ist die aktuelle Landeseite:\n\n"+f.html+"\n\nGewünschte Änderung: "+instr+"\n\nGib die KOMPLETTE, aktualisierte HTML-Seite zurück (nur HTML, von <!DOCTYPE html> bis </html>).");
+      if(html&&/<\/html>/i.test(html)){ f.html=html; saveDB(); frame.srcdoc=html; document.getElementById("html-ai").value=""; stt.innerHTML='<span style="color:var(--good)">Angepasst ✓</span>'; }
+      else stt.innerHTML='<span style="color:var(--bad)">KI-Antwort unbrauchbar – nochmal.</span>'; }
+    catch(e){ stt.innerHTML='<span style="color:var(--bad)">KI-Fehler: '+esc(e.message)+'</span>'; }
+    go.disabled=false; };
+}
+
 function showModal(html){
   document.getElementById("modal-root").innerHTML='<div class="overlay" id="overlay"><div class="modal">'+html+'</div></div>';
   document.querySelectorAll("[data-close]").forEach(b=>b.onclick=closeModal);
@@ -2548,6 +2840,8 @@ function checkHash(){
 render();
 checkHash();
 window.addEventListener("hashchange", checkHash);
+/* load this user's data from Supabase, then refresh the view */
+if(REMOTE){ supaLoad().then(loaded=>{ if(loaded) render(); }); }
 </script>
 </body>
 </html>
