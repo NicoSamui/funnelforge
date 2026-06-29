@@ -1,0 +1,21 @@
+# Netlify configuration for FunnelForge (static single-page app)
+[build]
+  publish = "."
+  command = ""
+
+# Security headers for every response
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"
+    # script-src is locked to known pixel hosts (blocks injected 3rd-party scripts);
+    # img/frame/connect are permissive over https so embeds, pixels & webhooks keep working.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://connect.facebook.net https://www.googletagmanager.com https://analytics.tiktok.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; media-src 'self' https:; frame-src https:; connect-src 'self' https:; base-uri 'self'; form-action 'self' https:; frame-ancestors 'self'"
+
+# index.html must never be long-cached so customers always get the latest deploy
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

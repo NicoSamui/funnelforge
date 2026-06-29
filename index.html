@@ -1,0 +1,2553 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FunnelForge — Funnel Builder</title>
+<style>
+:root{
+  --bg:#0f1115; --panel:#171a21; --panel2:#1e222b; --border:#2a2f3a;
+  --txt:#e7e9ee; --muted:#9aa3b2; --accent:#4f7cff; --accent2:#7c5cff;
+  --good:#2fbf71; --warn:#f5a623; --bad:#ef4565; --radius:12px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--txt);font-size:14px;line-height:1.45}
+button{font-family:inherit;cursor:pointer}
+input,select,textarea{font-family:inherit}
+a{color:var(--accent)}
+.hidden{display:none!important}
+.app{display:flex;height:100vh;overflow:hidden}
+/* Sidebar */
+.side{width:230px;background:var(--panel);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;flex-shrink:0}
+.brand{padding:18px 18px 12px;font-weight:700;font-size:18px;display:flex;align-items:center;gap:8px}
+.brand .dot{width:12px;height:12px;border-radius:4px;background:linear-gradient(135deg,var(--accent),var(--accent2))}
+.brand small{display:block;font-weight:400;font-size:11px;color:var(--muted);margin-top:2px}
+.nav{padding:8px;display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:none;
+  background:transparent;color:var(--muted);padding:10px 12px;border-radius:8px;font-size:14px}
+.nav button:hover{background:var(--panel2);color:var(--txt)}
+.nav button.active{background:var(--panel2);color:var(--txt);box-shadow:inset 3px 0 0 var(--accent)}
+.nav .ico{width:18px;text-align:center}
+.side .foot{margin-top:auto;padding:14px;border-top:1px solid var(--border);color:var(--muted);font-size:12px}
+/* Main */
+.main{flex:1;overflow:auto;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;
+  border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:20}
+.topbar h1{font-size:18px;margin:0}
+.content{padding:22px;max-width:1180px;width:100%;margin:0 auto}
+/* Buttons */
+.btn{background:var(--panel2);border:1px solid var(--border);color:var(--txt);padding:9px 14px;border-radius:9px;font-size:13px;display:inline-flex;align-items:center;gap:7px}
+.btn:hover{border-color:#3a4150}
+.btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:#fff;font-weight:600}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--bad);border-color:#3a2030}
+.btn.sm{padding:6px 10px;font-size:12px}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+/* Cards / grid */
+.grid{display:grid;gap:16px}
+.cards{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.kpi{display:flex;flex-direction:column;gap:6px}
+.kpi .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.kpi .val{font-size:28px;font-weight:700}
+.kpi .sub{font-size:12px;color:var(--muted)}
+.section-title{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:26px 0 10px}
+/* Table */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--border)}
+th{color:var(--muted);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+tr:hover td{background:var(--panel2)}
+.badge{display:inline-block;padding:3px 9px;border-radius:99px;font-size:11px;font-weight:600}
+.badge.green{background:rgba(47,191,113,.15);color:var(--good)}
+.badge.gray{background:rgba(154,163,178,.15);color:var(--muted)}
+.badge.warn{background:rgba(245,166,35,.15);color:var(--warn)}
+/* Funnel list */
+.funnel-card{display:flex;flex-direction:column;gap:10px;cursor:default}
+.funnel-card .meta{color:var(--muted);font-size:12px}
+.funnel-card .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.mini-stats{display:flex;gap:14px;margin-top:4px}
+.mini-stats div{font-size:12px;color:var(--muted)}
+.mini-stats b{color:var(--txt);font-size:15px;display:block}
+/* Forms */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.field input,.field select,.field textarea{width:100%;background:var(--panel2);border:1px solid var(--border);
+  color:var(--txt);padding:10px 12px;border-radius:9px;font-size:13px}
+.field textarea{min-height:70px;resize:vertical}
+.field .hint{font-size:11px;color:var(--muted);margin-top:5px}
+.inline{display:flex;gap:10px;align-items:center}
+.switch{display:inline-flex;align-items:center;gap:8px;cursor:pointer}
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;max-width:520px;width:100%;padding:22px;max-height:88vh;overflow:auto}
+.modal h3{margin:0 0 14px}
+.modal .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+/* ===== Builder ===== */
+.builder{display:grid;grid-template-columns:230px 1fr 290px;height:calc(100vh - 57px)}
+.bcol{overflow:auto;border-right:1px solid var(--border)}
+.bcol:last-child{border-right:none;border-left:1px solid var(--border)}
+.bcol h4{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:14px 14px 8px;margin:0}
+.steps-list{padding:6px 10px}
+.step-item{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px;margin-bottom:8px;cursor:pointer}
+.step-item.active{border-color:var(--accent)}
+.step-item .si-top{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.step-item .si-name{font-weight:600;font-size:13px}
+.step-item .si-meta{font-size:11px;color:var(--muted);margin-top:3px}
+.step-item .si-actions{display:flex;gap:4px}
+.icon-btn{background:transparent;border:none;color:var(--muted);padding:2px 5px;border-radius:6px;font-size:13px}
+.icon-btn:hover{background:var(--border);color:var(--txt)}
+.canvas-wrap{display:flex;flex-direction:column;align-items:center;padding:22px;background:#0b0d11;overflow:auto}
+.phone{width:390px;max-width:100%;background:#fff;color:#15181f;border-radius:30px;min-height:560px;
+  box-shadow:0 18px 64px rgba(0,0,0,.5);overflow:hidden;border:9px solid #04060a}
+.phone-inner{padding:26px 22px 40px;min-height:540px;color:#1a1f29;-webkit-font-smoothing:antialiased;font-size:16px;line-height:1.5}
+.drop-zone{min-height:80px}
+.pb-block{position:relative;border:1px dashed transparent;border-radius:8px;padding:6px;margin:2px 0;cursor:grab}
+.pb-block:hover{border-color:#c7d0e0;background:#f5f7fb}
+.pb-block.sel{border:1px solid var(--accent);background:#eef2ff}
+.pb-block .bgrip{position:absolute;top:4px;right:6px;font-size:10px;color:#9aa3b2;background:#fff;border-radius:5px;padding:1px 5px;border:1px solid #e2e6ee;opacity:0;display:flex;gap:4px}
+.pb-block:hover .bgrip{opacity:1}
+.pb-block .bgrip button{border:none;background:transparent;cursor:pointer;font-size:11px;color:#5a6478}
+.empty-canvas{color:#9aa3b2;text-align:center;padding:40px 10px;border:2px dashed #d6dce8;border-radius:12px}
+.palette{padding:8px 10px;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.pal-item{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:10px 8px;text-align:center;font-size:12px;cursor:grab;user-select:none}
+.pal-item:hover{border-color:var(--accent)}
+.pal-item .pi{font-size:17px;display:block;margin-bottom:3px}
+.props{padding:12px 14px}
+.props .field{margin-bottom:11px}
+.opt-row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.opt-row input{flex:1}
+.opt-row select{width:120px}
+/* rendered preview elements (inside phone & player) */
+.r-headline{font-weight:800;line-height:1.16;letter-spacing:-.02em;margin:14px 0 8px;color:#10131a}
+.r-text{margin:8px 0 14px;color:#4a5365;line-height:1.62;font-size:15.5px}
+.r-img{width:100%;border-radius:16px;margin:12px 0;display:block;object-fit:cover}
+.r-btn{display:block;width:100%;text-align:center;padding:16px 18px;border-radius:14px;border:none;
+  color:#fff;font-weight:700;font-size:16px;margin:14px 0;cursor:pointer;letter-spacing:.01em;
+  box-shadow:0 8px 22px rgba(0,0,0,.14);transition:transform .12s,box-shadow .12s}
+.r-btn:hover{transform:translateY(-1px);box-shadow:0 12px 28px rgba(0,0,0,.2)}
+.r-btn:active{transform:translateY(0)}
+.r-choice{border:2px solid #e6eaf2;border-radius:14px;padding:15px 16px;margin:10px 0;cursor:pointer;font-weight:600;font-size:15.5px;transition:.15s;background:#fff;color:#1a1f29;box-shadow:0 1px 3px rgba(16,19,26,.05)}
+.r-choice:hover{border-color:var(--accent);background:#f3f6ff;transform:translateY(-1px)}
+.r-choice.picked{border-color:var(--accent);background:#eef2ff}
+.r-choice.exp{background:#2f3340;color:#fff;border:2px solid transparent;text-align:left;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.r-choice.exp:hover{background:#262a35;border-color:transparent;transform:translateY(-1px)}
+.r-choice.exp.picked{border-color:#fff;filter:brightness(1.1)}
+.r-qbar{color:#fff;font-weight:700;text-align:center;padding:14px;margin:-26px -22px 22px;font-size:15px;letter-spacing:.02em}
+.r-kicker{text-align:center;font-size:12px;font-weight:700;letter-spacing:.12em;color:#8a94a6;text-transform:uppercase;margin:22px 0 4px}
+.r-quote{font-style:italic;color:#3a4250;border-left:3px solid #e2e6ee;padding-left:12px;margin:10px 0}
+.r-compare{border:1px solid #e2e6ee;border-radius:12px;padding:14px;margin:10px 0}
+.r-q{font-weight:800;font-size:20px;line-height:1.25;letter-spacing:-.01em;margin:6px 0 16px;color:#10131a;text-align:center}
+.r-field{margin-bottom:12px}
+.r-field label{display:block;font-size:12.5px;color:#5a6478;margin-bottom:5px;font-weight:600}
+.r-field input,.r-field select,.r-field textarea{width:100%;padding:14px;border:1.5px solid #dde3ec;border-radius:12px;font-size:16px;color:#15181f;background:#fff;transition:border-color .15s}
+.r-field input:focus,.r-field select:focus,.r-field textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,124,255,.12)}
+.r-timer{text-align:center;font-weight:800;font-size:27px;letter-spacing:.03em;margin:12px 0;color:#10131a;font-variant-numeric:tabular-nums}
+.r-progress{height:7px;background:#eef1f6;border-radius:99px;overflow:hidden;margin:-8px -2px 20px}
+.r-progress > div{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .3s}
+/* Player full */
+.player-overlay{position:fixed;inset:0;background:#0b0d11;z-index:200;display:flex;flex-direction:column}
+.player-bar{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--border)}
+.player-stage{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:24px;background:radial-gradient(1100px 560px at 50% -8%, #1b2233 0%, #0b0d11 62%)}
+.r-field.err input,.r-field.err select,.r-field.err textarea{border-color:#ef4565!important;box-shadow:0 0 0 3px rgba(239,69,101,.13)}
+.r-field.err label{color:#ef4565}
+.r-consent.err{color:#ef4565}.r-consent.err input{outline:2px solid #ef4565}
+.mobile-note{display:none;background:rgba(79,124,255,.1);border:1px solid rgba(79,124,255,.3);color:#b9c6ff;border-radius:10px;padding:11px 13px;font-size:12.5px;margin-bottom:14px;max-width:390px}
+/* charts */
+.chart{width:100%;overflow:visible}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.bar-row .bl{width:130px;font-size:12px;color:var(--muted);flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bar-track{flex:1;background:var(--panel2);border-radius:6px;height:26px;position:relative;overflow:hidden}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px;display:flex;align-items:center;padding-left:8px;font-size:11px;color:#fff;font-weight:600;min-width:2px}
+.bar-row .bv{width:120px;font-size:12px;color:var(--muted);text-align:right;flex-shrink:0}
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tabs .t{padding:7px 13px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:var(--muted);font-size:13px}
+.tabs .t.active{background:var(--panel2);color:var(--txt);border-color:var(--accent)}
+.flex{display:flex}.between{justify-content:space-between}.center{align-items:center}.gap{gap:10px}.wrap{flex-wrap:wrap}
+.muted{color:var(--muted)}
+.notice{background:rgba(79,124,255,.08);border:1px solid rgba(79,124,255,.3);border-radius:10px;padding:12px 14px;font-size:12.5px;color:#b9c6ff;margin-bottom:16px}
+.toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#15181f;border:1px solid var(--border);color:var(--txt);padding:12px 18px;border-radius:10px;z-index:300;box-shadow:0 8px 30px rgba(0,0,0,.5);font-size:13px}
+code.dns{display:block;background:#0b0d11;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-family:ui-monospace,Menlo,monospace;font-size:12px;margin:4px 0;color:#b9c6ff;word-break:break-all}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+/* new blocks */
+.r-list{list-style:none;padding:0;margin:12px 0}
+.r-list li{padding:9px 0 9px 32px;position:relative;color:#39414f;font-size:15px;line-height:1.5;border-bottom:1px solid #f0f2f7}
+.r-list li:last-child{border-bottom:none}
+.r-list li:before{content:"✓";position:absolute;left:0;top:8px;width:20px;height:20px;line-height:20px;text-align:center;border-radius:50%;background:rgba(47,191,113,.14);color:#2fbf71;font-weight:800;font-size:12px}
+.r-feature{display:flex;gap:13px;align-items:flex-start;background:#f7f9fc;border:1px solid #eef1f6;border-radius:16px;padding:15px 16px;margin:10px 0}
+.r-feature .fi{font-size:24px;line-height:1.1;flex:0 0 auto;width:36px;height:36px;text-align:center;border-radius:10px;background:#fff;border:1px solid #eef1f6}
+.r-feature .ft{font-weight:700;font-size:15.5px;color:#10131a;margin-bottom:3px}
+.r-feature .fd{font-size:13.5px;color:#5a6478;line-height:1.5}
+.r-faq{border:1px solid #e2e6ee;border-radius:10px;margin:8px 0;overflow:hidden}
+.r-faq summary{padding:13px 14px;cursor:pointer;font-weight:600;color:#15181f;list-style:none}
+.r-faq summary::-webkit-details-marker{display:none}
+.r-faq summary:after{content:"+";float:right;color:#9aa3b2;font-weight:700}
+.r-faq[open] summary:after{content:"–"}
+.r-faq .fa{padding:0 14px 13px;color:#3a4250;font-size:13px}
+.r-tslide{display:flex;gap:12px;overflow-x:auto;padding:6px 2px 14px;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+.r-tcard{flex:0 0 86%;scroll-snap-align:center;background:#fff;border:1px solid #eef1f6;border-radius:16px;padding:16px 17px;box-shadow:0 6px 20px rgba(16,19,26,.06)}
+.r-tcard .tt{color:#39414f;line-height:1.55;font-size:14.5px}
+.r-tcard .tt:before{content:"“";font-size:30px;color:#cdd6e6;line-height:0;vertical-align:-8px;margin-right:2px}
+.r-tcard .tn{margin-top:12px;font-weight:700;font-size:13px;color:#10131a}
+.r-tcard .tn:before{content:"";display:inline-block;width:22px;height:2px;background:var(--accent);vertical-align:middle;margin-right:7px;border-radius:2px}
+.r-embed{width:100%;border:0;border-radius:10px;margin:8px 0;min-height:120px}
+.r-consent{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:#3a4250;margin:8px 0}
+.r-consent input{margin-top:3px}
+.cc-wrap{display:flex;gap:6px}
+.cc-wrap select{width:108px;flex:0 0 auto}
+/* step animation */
+@keyframes stepIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.step-anim{animation:stepIn .32s ease}
+/* confetti */
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:400;overflow:hidden}
+.confetti-piece{position:absolute;width:9px;height:14px;opacity:.9;will-change:transform}
+@keyframes confFall{to{transform:translateY(105vh) rotate(720deg);opacity:1}}
+/* kanban */
+.kanban{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px}
+.kan-col{flex:0 0 240px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px}
+.kan-col h4{margin:2px 0 10px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);display:flex;justify-content:space-between}
+.kan-card{background:var(--panel2);border:1px solid var(--border);border-radius:9px;padding:10px;margin-bottom:8px}
+.kan-card .kn{font-weight:600;font-size:13px}
+.kan-card .ke{font-size:11px;color:var(--muted);margin:3px 0 6px;word-break:break-all}
+.kan-card select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--txt);border-radius:7px;padding:5px;font-size:11px}
+.hbar{display:flex;align-items:flex-end;gap:4px;height:120px}
+.hbar .hb{flex:1;background:linear-gradient(180deg,#7c5cff,#4f7cff);border-radius:3px 3px 0 0;min-height:2px}
+.hbar .hl{font-size:8px;color:var(--muted);text-align:center;margin-top:3px}
+/* Hero / badges / kicker — premium funnel design */
+.r-hero{margin:-26px -22px 24px;padding:40px 24px 34px;text-align:center;color:#fff;position:relative;overflow:hidden}
+.r-hero:after{content:"";position:absolute;right:-70px;top:-70px;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.10)}
+.r-hero:before{content:"";position:absolute;left:-60px;bottom:-80px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.07)}
+.r-hero-img{position:absolute;inset:0;background-size:cover;background-position:center;opacity:.22}
+.r-hero .hb{position:relative;display:inline-block;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;padding:6px 13px;border-radius:99px;margin-bottom:16px}
+.r-hero h2{position:relative;font-size:30px;line-height:1.12;letter-spacing:-.022em;margin:0 0 12px;font-weight:800;color:#fff}
+.r-hero p{position:relative;font-size:15.5px;line-height:1.55;color:rgba(255,255,255,.93);margin:0 auto 20px;max-width:33ch}
+.r-hero .r-btn{position:relative;background:#fff !important;color:#15181f;margin:0;box-shadow:0 10px 26px rgba(0,0,0,.22)}
+.r-badges{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0}
+.r-badges span{background:#f2f5fa;border:1px solid #e6eaf2;border-radius:99px;padding:7px 13px;font-size:12.5px;font-weight:600;color:#3a4250}
+.r-kicker2{text-align:center;font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;margin:26px 0 8px}
+.r-kicker2:after{content:"";display:block;width:32px;height:3px;border-radius:2px;background:currentColor;margin:9px auto 0;opacity:.55}
+/* Mobile: render the funnel full-bleed (no phone mockup) */
+@media(max-width:480px){
+  .r-hero{margin:-24px -20px 22px}
+  .player-stage{padding:0;align-items:stretch;justify-content:stretch}
+  .player-stage .phone{width:100%;max-width:100%;border:0;border-radius:0;min-height:100%;box-shadow:none}
+  .player-stage .phone-inner{min-height:calc(100vh - 52px);padding:24px 20px 64px}
+  .player-stage .r-qbar{margin:-24px -20px 22px}
+  .player-bar{padding:10px 14px}
+  .r-headline{font-size:25px!important}
+  .r-q{font-size:19px}
+}
+@media(max-width:760px){
+  .builder{grid-template-columns:1fr}
+  .bcol{display:none}
+  .bcol.canvas-wrap{display:flex}
+  .mobile-note{display:block}
+  .split{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div id="root" class="app"></div>
+<div id="modal-root"></div>
+<div id="player-root"></div>
+<div id="toast-root"></div>
+
+<script>
+"use strict";
+/* ============================================================
+   FunnelForge — Perspective-Style Funnel Builder (Single File)
+   ============================================================ */
+
+/* ---------- Persistence ---------- */
+const STORE_KEY = "funnelforge_db_v1";
+const VIS_KEY = "funnelforge_visitor";
+
+function uid(p){ return (p||"id")+"_"+Math.random().toString(36).slice(2,9); }
+function now(){ return Date.now(); }
+function deepClone(o){ return JSON.parse(JSON.stringify(o)); }
+
+let DB = loadDB();
+DB.funnels=DB.funnels||[]; DB.leads=DB.leads||[]; DB.events=DB.events||[]; DB.domains=DB.domains||[];
+DB.schemaVersion=DB.schemaVersion||1;
+if(!DB.aiConfig) DB.aiConfig = { provider:"openai", apiKey:"", model:"" };
+function loadDB(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw) return JSON.parse(raw);
+  }catch(e){ console.warn("DB load failed",e); }
+  return { funnels:[], leads:[], events:[], domains:[] };
+}
+function saveDB(){
+  try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }
+  catch(e){ console.warn("DB save failed",e); }
+}
+function getVisitorId(){
+  let v = localStorage.getItem(VIS_KEY);
+  if(!v){ v = uid("vis"); localStorage.setItem(VIS_KEY, v); }
+  return v;
+}
+
+/* ---------- UI State ---------- */
+const UI = { view:"dashboard", funnelId:null, stepId:null, blockId:null, range:"7d", analyticsFunnel:null };
+
+/* ---------- Helpers ---------- */
+function esc(s){ return String(s==null?"":s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m])); }
+function fmtDate(ts){ const d=new Date(ts); return d.toLocaleDateString("de-DE")+" "+d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}); }
+function fmtDateShort(ts){ const d=new Date(ts); return d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"}); }
+function pct(n){ return (isFinite(n)?Math.round(n*1000)/10:0)+"%"; }
+function toast(msg){
+  const r=document.getElementById("toast-root");
+  r.innerHTML='<div class="toast">'+esc(msg)+'</div>';
+  setTimeout(()=>{ r.innerHTML=""; }, 2600);
+}
+function getFunnel(id){ return DB.funnels.find(f=>f.id===id); }
+function getStep(f,id){ return f? f.steps.find(s=>s.id===id):null; }
+
+/* ---------- Event tracking ---------- */
+function track(funnelId, type, extra){
+  DB.events.push(Object.assign({ id:uid("ev"), funnelId, type, ts:now(), visitor:getVisitorId() }, extra||{}));
+  saveDB();
+}
+
+/* ============================================================
+   BLOCK DEFINITIONS
+   ============================================================ */
+const BLOCK_DEFS = {
+  headline:{ icon:"H", label:"Überschrift", make:()=>({type:"headline",text:"Deine starke Überschrift",size:26,align:"left"}) },
+  text:    { icon:"¶", label:"Text",       make:()=>({type:"text",text:"Ein erklärender Absatz, der Vertrauen aufbaut.",align:"left"}) },
+  image:   { icon:"🖼", label:"Bild",       make:()=>({type:"image",url:"",alt:""}) },
+  video:   { icon:"▶", label:"Video",      make:()=>({type:"video",url:""}) },
+  button:  { icon:"⬛", label:"Button",      make:()=>({type:"button",label:"Weiter",action:"next",url:"",variant:""}) },
+  choice:  { icon:"☑", label:"Quiz/Auswahl",make:()=>({type:"choice",question:"Was beschreibt dich am besten?",multi:false,
+              options:[{id:uid("o"),label:"Option A",points:1,next:"next"},{id:uid("o"),label:"Option B",points:2,next:"next"}]}) },
+  form:    { icon:"✎", label:"Formular",    make:()=>({type:"form",submitLabel:"Jetzt absenden",fields:[
+              {key:"name",label:"Name",type:"text",required:true},
+              {key:"email",label:"E-Mail",type:"email",required:true}]}) },
+  timer:   { icon:"⏱", label:"Countdown",   make:()=>({type:"timer",minutes:15,label:"Angebot endet in",mode:"duration",endDate:""}) },
+  list:    { icon:"✓", label:"Liste",        make:()=>({type:"list",items:["Erster Vorteil","Zweiter Vorteil","Dritter Vorteil"]}) },
+  faq:     { icon:"❓", label:"FAQ",          make:()=>({type:"faq",items:[{q:"Häufige Frage?",a:"Die hilfreiche Antwort dazu."}]}) },
+  testslider:{ icon:"❝", label:"Testimonials",make:()=>({type:"testslider",items:[{text:"Bestes Tool, das ich je genutzt habe!",name:"Sara M."},{text:"In 2 Wochen 30 neue Leads.",name:"Tom K."}]}) },
+  feature: { icon:"⭐", label:"Vorteil-Karte",make:()=>({type:"feature",icon:"⭐",title:"Dein Vorteil",text:"Kurze, überzeugende Beschreibung dieses Vorteils."}) },
+  hero:    { icon:"★", label:"Hero",         make:()=>({type:"hero",badge:"JETZT BEWERBEN",headline:"Deine starke Hero-Überschrift",text:"Ein überzeugender Untertitel, der sofort Lust auf mehr macht.",cta:"Jetzt starten",image:""}) },
+  badges:  { icon:"⬭", label:"Trust-Badges", make:()=>({type:"badges",items:["★ 4,9/5 Bewertung","🔒 100% sicher","⚡ 60 Sekunden"]}) },
+  kicker:  { icon:"—", label:"Kicker-Label", make:()=>({type:"kicker",text:"KLEINER AKZENT-TITEL"}) },
+  result:  { icon:"🏆", label:"Quiz-Ergebnis",make:()=>({type:"result",tiers:[
+              {min:0,title:"Dein Ergebnis: Einsteiger",text:"Du startest gerade – wir zeigen dir den schnellsten Weg."},
+              {min:3,title:"Dein Ergebnis: Fortgeschritten",text:"Du hast Potenzial – Zeit, gezielt zu skalieren."},
+              {min:6,title:"Dein Ergebnis: Profi",text:"Du bist bereit für den nächsten großen Schritt."}]}) },
+  embed:   { icon:"⧉", label:"Embed/HTML",  make:()=>({type:"embed",url:"",html:""}) },
+  payment: { icon:"💳", label:"Zahlung",      make:()=>({type:"payment",label:"Jetzt kaufen",amount:"49 €",url:""}) },
+  spacer:  { icon:"↕", label:"Abstand",     make:()=>({type:"spacer",height:24}) }
+};
+const BLOCK_ORDER = ["hero","headline","kicker","text","badges","image","video","button","choice","form","list","feature","faq","testslider","result","timer","embed","payment","spacer"];
+const EXP_CTA = "linear-gradient(220deg,#54F962 0%,#229F97 100%)";
+const COUNTRY_CODES=[["+49","DE"],["+43","AT"],["+41","CH"],["+1","US"],["+44","UK"],["+33","FR"],["+39","IT"],["+34","ES"],["+31","NL"],["+48","PL"]];
+
+/* Smart personalization: replace {{key}} with UTM/query params or submitted form fields */
+function personalize(s){
+  if(!s || String(s).indexOf("{{")<0) return s;
+  const map=Object.assign({}, PLAYER.utm||{}, PLAYER.fields||{});
+  return String(s).replace(/\{\{\s*([\w.]+)\s*\}\}/g,(m,k)=>{ const v=map[k]; return (v!=null&&v!=="")?v:""; });
+}
+function confetti(){
+  if(document.getElementById("confetti")) return;
+  const c=document.createElement("div"); c.id="confetti"; document.body.appendChild(c);
+  const colors=["#4f7cff","#7c5cff","#2fbf71","#f5a623","#ef4565"];
+  for(let i=0;i<90;i++){ const p=document.createElement("div"); p.className="confetti-piece";
+    p.style.left=(Math.random()*100)+"vw"; p.style.top=(-10-Math.random()*20)+"vh";
+    p.style.background=colors[i%colors.length];
+    p.style.animation="confFall "+(2+Math.random()*1.6)+"s "+(Math.random()*0.5)+"s ease-in forwards";
+    p.style.transform="rotate("+(Math.random()*360)+"deg)"; c.appendChild(p); }
+  setTimeout(()=>{ const e=document.getElementById("confetti"); if(e) e.remove(); }, 4500);
+}
+function downloadICS(title,startISO,durationMin){
+  const dt=new Date(startISO); if(isNaN(dt.getTime())){ toast("Kein gültiges Webinar-Datum hinterlegt"); return; }
+  const pad=n=>String(n).padStart(2,"0");
+  const fmt=d=>d.getUTCFullYear()+pad(d.getUTCMonth()+1)+pad(d.getUTCDate())+"T"+pad(d.getUTCHours())+pad(d.getUTCMinutes())+"00Z";
+  const end=new Date(dt.getTime()+(durationMin||60)*60000);
+  const ics=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//FunnelForge//DE","BEGIN:VEVENT","UID:"+uid("ics")+"@funnelforge",
+    "DTSTAMP:"+fmt(new Date()),"DTSTART:"+fmt(dt),"DTEND:"+fmt(end),"SUMMARY:"+title,"END:VEVENT","END:VCALENDAR"].join("\r\n");
+  const blob=new Blob([ics],{type:"text/calendar;charset=utf-8"}); const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="termin.ics"; a.click();
+}
+function detectDevice(){ return /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent||"")?"mobile":"desktop"; }
+/* reject javascript:/data: and other unsafe schemes for links/iframes */
+function safeUrl(u){ u=String(u||"").trim(); if(!u) return "";
+  if(/^(https?:|mailto:|tel:)/i.test(u)) return u;
+  if(/^\/\//.test(u)) return "https:"+u;
+  if(/^[\w.-]+\.[a-z]{2,}([\/?#]|$)/i.test(u)) return "https://"+u;
+  return ""; }
+function recomputeScore(){ PLAYER.score=Object.keys(PLAYER.points||{}).reduce((a,k)=>a+(PLAYER.points[k]||0),0); }
+function brandGradient(c){ c=c||"#4f7cff"; return "linear-gradient(135deg,"+shade(c,0.20)+" 0%,"+shade(c,-0.22)+" 100%)"; }
+function hexToRgba(hex,a){ hex=String(hex||"#4f7cff").replace("#",""); if(hex.length===3) hex=hex.split("").map(c=>c+c).join("");
+  const r=parseInt(hex.substr(0,2),16)||0,g=parseInt(hex.substr(2,2),16)||0,b=parseInt(hex.substr(4,2),16)||0; return "rgba("+r+","+g+","+b+","+a+")"; }
+function heroHTML(bl,f,p){ p=p||(x=>x); const c=f.settings.primaryColor||"#4f7cff";
+  const img=bl.image?('<div class="r-hero-img" style="background-image:url(\''+esc(safeUrl(bl.image)||"")+'\')"></div>'):"";
+  return '<div class="r-hero" style="background:'+brandGradient(c)+'">'+img
+    +(bl.badge?'<span class="hb">'+esc(p(bl.badge))+'</span>':'')
+    +'<h2>'+esc(p(bl.headline))+'</h2>'
+    +(bl.text?'<p>'+esc(p(bl.text))+'</p>':'')
+    +(bl.cta?'<button class="r-btn play-btn">'+esc(p(bl.cta))+'</button>':'')
+    +'</div>'; }
+function ctaBg(f){ return (f.settings&&f.settings.ctaColor)? f.settings.ctaColor : brandGradient(f.settings&&f.settings.primaryColor); }
+
+/* ============================================================
+   TEMPLATES (5)
+   ============================================================ */
+function newStep(name, blocks, meta){ return { id:uid("st"), name:name||"Schritt", blocks:blocks||[], logic:{defaultNext:"next"}, meta:meta||{} }; }
+function newFunnel(name){
+  return { id:uid("fn"), name:name||"Neuer Funnel", createdAt:now(), published:false,
+    settings:{ metaPixel:"", ga4:"", webhook:"", primaryColor:"#4f7cff" }, steps:[] };
+}
+/* ---- compact block factories for templates ---- */
+function _h(t,s,a){const b=BLOCK_DEFS.headline.make();b.text=t;if(s)b.size=s;b.align=a||"left";return b;}
+function _t(t,a){const b=BLOCK_DEFS.text.make();b.text=t;b.align=a||"left";return b;}
+function _btn(label,variant){const b=BLOCK_DEFS.button.make();b.label=label;b.action="next";if(variant)b.variant=variant;return b;}
+function _feat(icon,title,text){const b=BLOCK_DEFS.feature.make();b.icon=icon;b.title=title;b.text=text;return b;}
+function _choice(q,opts){const b=BLOCK_DEFS.choice.make();b.question=q;b.options=opts.map(o=>({id:uid("o"),label:o[0],points:(o[1]!=null?o[1]:1),next:"next"}));return b;}
+function _form(submit,fields){const b=BLOCK_DEFS.form.make();b.submitLabel=submit;if(fields)b.fields=fields;return b;}
+function _list(items){const b=BLOCK_DEFS.list.make();b.items=items;return b;}
+function _video(url){const b=BLOCK_DEFS.video.make();b.url=url;return b;}
+function _img(url,alt){const b=BLOCK_DEFS.image.make();b.url=url;b.alt=alt||"";return b;}
+function _sp(h){const b=BLOCK_DEFS.spacer.make();b.height=h||16;return b;}
+function _res(tiers){const b=BLOCK_DEFS.result.make();b.tiers=tiers;return b;}
+function recFields(){ return [
+  {key:"vorname",label:"Vorname",type:"text",required:true},
+  {key:"nachname",label:"Nachname",type:"text",required:true},
+  {key:"email",label:"E-Mail",type:"email",required:true},
+  {key:"telefon",label:"Telefon",type:"tel",required:true}]; }
+function _kick(t){const b=BLOCK_DEFS.kicker.make();b.text=t;return b;}
+function _hero(o){const b=BLOCK_DEFS.hero.make();b.badge=o.badge||"";b.headline=o.headline||"";b.text=o.text||"";b.cta=o.cta||"Jetzt starten";b.image=o.image||"";return b;}
+function _badges(items){const b=BLOCK_DEFS.badges.make();b.items=items;return b;}
+function _tst(items){const b=BLOCK_DEFS.testslider.make();b.items=items;return b;}
+/* Builds a long-form recruiting landing page (7+ sections) from a copy object. */
+function recLanding(o){
+  const cta=o.cta, L=[];
+  L.push(_hero({badge:o.kicker||"JETZT BEWERBEN", headline:o.h1, text:o.sub, cta:cta, image:o.heroImage||""}));
+  L.push(_badges(o.badges||["★ 4,9/5","🔒 100% sicher","⚡ 60 Sekunden"]));
+  if(o.video){ L.push(_sp(4)); L.push(_video(o.video)); }
+  L.push(_sp(12));
+  L.push(_h(o.painTitle,23,"center"));
+  (o.pains||[]).forEach(p=>L.push(_t(p,"left")));
+  if(o.painQ) L.push(_t(o.painQ,"center"));
+  L.push(_btn(cta,"cta")); L.push(_sp(16));
+  L.push(_h(o.visionTitle||"Stell dir stattdessen vor:",19,"center"));
+  if(o.visionHead) L.push(_h(o.visionHead,23,"center"));
+  (o.visionLines||[]).forEach(x=>L.push(_t("✓  "+x,"left")));
+  L.push(_sp(6)); L.push(_btn(cta,"cta")); L.push(_sp(16));
+  L.push(_kick(o.benefitsKicker||"DEINE VORTEILE"));
+  L.push(_h(o.benefitsTitle||"Das bekommst du bei uns",24,"center"));
+  (o.benefits||[]).forEach(b=>L.push(_feat(b[0],b[1],b[2])));
+  L.push(_sp(6)); L.push(_btn(cta,"cta")); L.push(_sp(16));
+  if(o.testimonials&&o.testimonials.length){ L.push(_kick("DAS SAGEN UNSERE LEUTE")); L.push(_tst(o.testimonials)); L.push(_btn(cta,"cta")); L.push(_sp(16)); }
+  if(o.proofTitle){ L.push(_h(o.proofTitle,22,"center")); (o.proofLines||[]).forEach(x=>L.push(_t("•  "+x,"left"))); L.push(_sp(6)); L.push(_btn(cta,"cta")); L.push(_sp(16)); }
+  if(o.closeTitle){ L.push(_kick("EINE EHRLICHE FRAGE")); L.push(_h(o.closeTitle,22,"center")); L.push(_t(o.closeText,"center")); L.push(_sp(8)); L.push(_btn(o.finalCta||cta,"cta")); }
+  return L;
+}
+
+const TEMPLATES = {
+  blank:{ name:"Leerer Funnel", build:()=>{ const f=newFunnel("Leerer Funnel");
+    f.steps=[ newStep("Start",[ BLOCK_DEFS.headline.make(), BLOCK_DEFS.text.make(), BLOCK_DEFS.button.make() ]) ]; return f; } },
+  optin:{ name:"Lead-Magnet Opt-in", build:()=>{ const f=newFunnel("Lead-Magnet Opt-in");
+    const h1=BLOCK_DEFS.headline.make(); h1.text="Hol dir den kostenlosen Guide";
+    const t1=BLOCK_DEFS.text.make(); t1.text="In 7 Schritten zu deinem ersten Ergebnis – ohne Vorerfahrung.";
+    const b1=BLOCK_DEFS.button.make(); b1.label="Ja, ich will den Guide";
+    const fr=BLOCK_DEFS.form.make(); fr.submitLabel="Guide jetzt sichern";
+    const ty=BLOCK_DEFS.headline.make(); ty.text="Geschafft! Check deine E-Mails 📩";
+    f.steps=[ newStep("Angebot",[h1,t1,b1]), newStep("Eintragen",[BLOCK_DEFS.headline.make(),fr]), newStep("Danke",[ty,BLOCK_DEFS.text.make()]) ];
+    f.steps[1].blocks[0].text="Wohin sollen wir den Guide schicken?";
+    return f; } },
+  quiz:{ name:"Quiz-Funnel (Perspective)", build:()=>{ const f=newFunnel("Quiz-Funnel");
+    const intro=BLOCK_DEFS.headline.make(); intro.text="Finde in 30 Sek. die richtige Lösung für dich";
+    const startBtn=BLOCK_DEFS.button.make(); startBtn.label="Quiz starten";
+    const q1=BLOCK_DEFS.choice.make(); q1.question="Wo stehst du gerade?";
+    q1.options=[{id:uid("o"),label:"Ich fange gerade an",points:1,next:"next"},
+                {id:uid("o"),label:"Ich habe schon erste Erfahrung",points:2,next:"next"},
+                {id:uid("o"),label:"Ich will skalieren",points:3,next:"next"}];
+    const q2=BLOCK_DEFS.choice.make(); q2.question="Was ist deine größte Hürde?";
+    q2.options=[{id:uid("o"),label:"Zeit",points:1,next:"next"},
+                {id:uid("o"),label:"Wissen",points:1,next:"next"},
+                {id:uid("o"),label:"Budget",points:1,next:"next"}];
+    const fr=BLOCK_DEFS.form.make(); fr.submitLabel="Meine Auswertung anzeigen";
+    const ty=BLOCK_DEFS.headline.make(); ty.text="Deine persönliche Empfehlung ist fertig ✅";
+    f.steps=[ newStep("Intro",[intro,BLOCK_DEFS.text.make(),startBtn]),
+              newStep("Frage 1",[q1]), newStep("Frage 2",[q2]),
+              newStep("Kontakt",[BLOCK_DEFS.headline.make(),fr]),
+              newStep("Ergebnis",[ty,BLOCK_DEFS.text.make()]) ];
+    f.steps[3].blocks[0].text="Wohin dürfen wir deine Auswertung schicken?";
+    return f; } },
+  webinar:{ name:"VSL / Webinar-Anmeldung", build:()=>{ const f=newFunnel("VSL / Webinar");
+    const h=BLOCK_DEFS.headline.make(); h.text="Kostenloses Training: So gewinnst du Kunden";
+    const v=BLOCK_DEFS.video.make(); v.url="https://www.youtube.com/embed/dQw4w9WgXcQ";
+    const tm=BLOCK_DEFS.timer.make(); tm.label="Anmeldung schließt in";
+    const b=BLOCK_DEFS.button.make(); b.label="Platz sichern";
+    const fr=BLOCK_DEFS.form.make();
+    f.steps=[ newStep("VSL",[h,v,tm,b]), newStep("Anmeldung",[BLOCK_DEFS.headline.make(),fr]),
+              newStep("Bestätigt",[BLOCK_DEFS.headline.make()]) ];
+    f.steps[2].blocks[0].text="Du bist angemeldet! 🎉";
+    return f; } },
+  call:{ name:"Beratungstermin buchen", build:()=>{ const f=newFunnel("Beratungstermin");
+    const h=BLOCK_DEFS.headline.make(); h.text="Buche dein kostenloses Strategiegespräch";
+    const t=BLOCK_DEFS.text.make(); t.text="30 Minuten, in denen wir deinen individuellen Plan erstellen.";
+    const q=BLOCK_DEFS.choice.make(); q.question="Wie viel Umsatz machst du aktuell?";
+    q.options=[{id:uid("o"),label:"0–5k / Monat",points:1,next:"next"},
+               {id:uid("o"),label:"5–20k / Monat",points:2,next:"next"},
+               {id:uid("o"),label:"20k+ / Monat",points:3,next:"next"}];
+    const fr=BLOCK_DEFS.form.make(); fr.submitLabel="Termin anfragen";
+    fr.fields=[{key:"name",label:"Name",type:"text",required:true},
+               {key:"email",label:"E-Mail",type:"email",required:true},
+               {key:"phone",label:"Telefon",type:"tel",required:true}];
+    f.steps=[ newStep("Angebot",[h,t,BLOCK_DEFS.button.make()]),
+              newStep("Qualifizierung",[q]),
+              newStep("Kontaktdaten",[BLOCK_DEFS.headline.make(),fr]),
+              newStep("Danke",[BLOCK_DEFS.headline.make(),t]) ];
+    f.steps[2].blocks[0].text="Fast geschafft – deine Daten:";
+    f.steps[3].blocks[0].text="Danke! Wir melden uns innerhalb von 24h.";
+    return f; } },
+  rec_express:{ name:"Recruiting: Express-Bewerbung", build:()=>{
+    const f=newFunnel("Express-Bewerbung"); f.settings.style="express"; f.settings.primaryColor="#d0292f";
+    const land=newStep("Start", recLanding({
+      kicker:"JETZT BEWERBEN · M/W/D",
+      h1:"Werde Teil unseres Teams (m/w/d)",
+      sub:"Bewirb dich in unter 60 Sekunden – ohne Lebenslauf, ohne Anschreiben. Wir melden uns innerhalb von 48 Stunden persönlich bei dir.",
+      cta:"Jetzt in 60 Sekunden bewerben",
+      painTitle:"Kennst du dieses Gefühl?",
+      pains:["Dein Arbeitstag fühlt sich jeden Tag gleich an.","Wertschätzung für deinen Einsatz? Fehlanzeige.","Du gibst alles – und bekommst wenig zurück.","Und insgeheim wächst der Wunsch nach Veränderung."],
+      painQ:"Kleiner Wechsel – oder endlich ein Job, auf den du dich freust?",
+      visionHead:"SO FÜHLT SICH ARBEITEN BEI UNS AN",
+      visionLines:["Ein Team, das dich wirklich wertschätzt und unterstützt.","Faire, pünktliche Bezahlung – Monat für Monat.","Klare Strukturen und planbare Arbeitszeiten.","Echte Chancen, dich weiterzuentwickeln."],
+      benefitsTitle:"Das bekommst du bei uns",
+      benefits:[["🤝","Ein starkes Team","Zusammenhalt, der im Alltag wirklich spürbar ist."],["💶","Faire Bezahlung","Übertariflich, pünktlich, verlässlich."],["📅","Sicherer Arbeitsplatz","Unbefristete Festanstellung mit Perspektive."],["📈","Weiterbildung","Wir investieren gezielt in deine Entwicklung."],["🎁","Extra-Benefits","Zuschüsse, Vergünstigungen & ein Team, das feiert."]],
+      testimonials:[{text:"Endlich ein Arbeitgeber, bei dem ich mich gesehen fühle. Ich würde mich jederzeit wieder bewerben.",name:"Sara M., seit 2 Jahren im Team"},{text:"Faire Bezahlung, tolles Team, klare Absprachen. Genau das habe ich gesucht.",name:"Daniel K., Teamleiter"}],
+      proofTitle:"Darum bleiben unsere Leute jahrelang",
+      proofLines:["Neue Kolleg:innen werden vom ersten Tag an eingearbeitet und begleitet.","Wir arbeiten im Team – gemeinsam statt jeder für sich.","Verlässliche Dienstpläne und ehrliche Kommunikation."],
+      closeTitle:"Du kannst warten – oder jetzt handeln.",
+      closeText:"Du kannst noch Monate darauf hoffen, dass sich in deinem Job etwas ändert. Oder du machst jetzt den ersten Schritt – in unter 60 Sekunden.",
+      finalCta:"Jetzt in 60 Sekunden bewerben"
+    }), {hideProgress:true});
+    const q1=newStep("Frage 1",[_choice("Hast du Erfahrung in diesem Bereich?",[["👉  Ja, mehrjährig",2],["👉  Erste Erfahrung",1],["👉  Quereinsteiger/in",1]])],{qlabel:"Frage 1 von 3"});
+    const q2=newStep("Frage 2",[_choice("Wann könntest du starten?",[["👉  Ab sofort",3],["👉  In 1 Monat",2],["👉  In 2–3 Monaten",1],["👉  Flexibel",1]])],{qlabel:"Frage 2 von 3"});
+    const q3=newStep("Frage 3",[_choice("Welches Pensum suchst du?",[["👉  Vollzeit",2],["👉  Teilzeit",1],["👉  Minijob",1]])],{qlabel:"Letzte Frage"});
+    const form=newStep("Bewerbung",[_h("Super, fast geschafft!",24,"center"),_t("Wohin dürfen wir uns bei dir melden?","center"),_form("Bewerbung absenden",recFields())]);
+    const ty=newStep("Danke",[_h("Vielen Dank für deine Bewerbung! 🎉",24,"center"),_t("Wir haben deine Bewerbung erhalten und melden uns innerhalb von 48 Stunden persönlich bei dir.","center")]); ty.logic.defaultNext="end";
+    f.steps=[land,q1,q2,q3,form,ty]; return f; } },
+  rec_quiz:{ name:"Recruiting: Bewerber-Quiz", build:()=>{
+    const f=newFunnel("Bewerber-Quiz"); f.settings.primaryColor="#4f7cff";
+    const land=newStep("Intro", recLanding({
+      kicker:"PASST DU ZU UNS?",
+      h1:"Passt dieser Job wirklich zu dir?",
+      sub:"Mach den 60-Sekunden-Check und finde heraus, ob du zu uns passt – und sichere dir ein unverbindliches Kennenlernen.",
+      cta:"Quiz starten",
+      painTitle:"Bewerben fühlt sich oft an wie eine Lotterie.",
+      pains:["Endlose Formulare und Lebensläufe.","Tagelang keine Rückmeldung.","Und am Ende passt der Job doch nicht.","Das geht auch anders."],
+      painQ:"Finde in 60 Sekunden heraus, ob es bei uns passt.",
+      visionTitle:"So einfach läuft's bei uns:",
+      visionHead:"IN 3 SCHRITTEN ZUM GESPRÄCH",
+      visionLines:["4 kurze Fragen beantworten – kein Lebenslauf nötig.","Sofort sehen, wie gut du zu uns passt.","Kontaktdaten eintragen – wir melden uns in 48 h."],
+      benefitsTitle:"Darum lohnt sich der Wechsel",
+      benefits:[["💶","Faires Gehalt","Leistung, die sich auch auf dem Konto zeigt."],["🤝","Echtes Team","Kolleg:innen, die zusammenhalten."],["📈","Aufstiegschancen","Entwickle dich fachlich und persönlich weiter."],["🕒","Planbare Zeiten","Dienstpläne, die zu deinem Leben passen."],["❤️","Wertschätzung","Du wirst gehört und ernst genommen."]],
+      testimonials:[{text:"Ich habe das Quiz aus Spaß gemacht – zwei Tage später hatte ich das Gespräch und heute meinen Traumjob.",name:"Lena R."},{text:"Endlich mal ein unkomplizierter Bewerbungsprozess. Top!",name:"Mehmet A."}],
+      proofTitle:"Schon über 500 zufriedene Kolleg:innen",
+      proofLines:["Schneller, fairer Bewerbungsprozess ohne Hürden.","Persönliche Rückmeldung statt Standard-Absage.","Ein Team, das wirklich zusammenhält."],
+      closeTitle:"Neugierig, wie gut du passt?",
+      closeText:"Es kostet dich 60 Sekunden – und kann dein Berufsleben verändern.",
+      finalCta:"Quiz jetzt starten"
+    }));
+    const q1=newStep("Frage 1",[_choice("Wie viel Erfahrung bringst du mit?",[["Mehr als 3 Jahre",3],["1–3 Jahre",2],["Erste Erfahrung",1],["Quereinsteiger/in",1]])]);
+    const q2=newStep("Frage 2",[_choice("Was motiviert dich am meisten?",[["Verantwortung & Wachstum",2],["Faires, sicheres Gehalt",2],["Ein tolles Team",2],["Work-Life-Balance",2]])]);
+    const q3=newStep("Frage 3",[_choice("Wann könntest du starten?",[["Ab sofort",3],["In 1 Monat",2],["In 2–3 Monaten",1],["Flexibel",1]])]);
+    const q4=newStep("Frage 4",[_choice("Wie sind deine Deutschkenntnisse?",[["Muttersprache",3],["Sehr gut",2],["Gut",1],["Grundkenntnisse",0]])]);
+    const res=newStep("Ergebnis",[_h("Dein Ergebnis",24,"center"),
+      _res([{min:0,title:"Du bringst Potenzial mit!",text:"Wir würden dich gerne kennenlernen und zeigen dir, wie der Einstieg klappt."},
+            {min:6,title:"Sehr gute Passung! ✅",text:"Du bringst genau das mit, was wir suchen. Lass uns sprechen!"},
+            {min:9,title:"Perfekte Passung! 🎯",text:"Du passt hervorragend zu uns – wir freuen uns sehr auf deine Bewerbung."}]),
+      _sp(6),_btn("Jetzt bewerben","cta")]);
+    const form=newStep("Kontakt",[_h("Wohin dürfen wir uns melden?",22,"center"),_form("Bewerbung absenden",recFields())]);
+    const ty=newStep("Danke",[_h("Danke, {{vorname}}! 🎉",24,"center"),_t("Wir haben deine Bewerbung erhalten und melden uns in Kürze bei dir.","center")]); ty.logic.defaultNext="end";
+    f.steps=[land,q1,q2,q3,q4,res,form,ty]; return f; } },
+  rec_experience:{ name:"Recruiting: Experience (Kultur)", build:()=>{
+    const f=newFunnel("Experience Recruiting"); f.settings.primaryColor="#10b981";
+    const land=newStep("Start", recLanding({
+      kicker:"LERNE UNS KENNEN",
+      h1:"So fühlt sich Arbeiten bei uns an",
+      sub:"Kein anonymer Großbetrieb, sondern ein Team mit Herz. Schau selbst, wie unser Alltag aussieht – und werde Teil davon.",
+      cta:"Ich will mehr erfahren",
+      video:"https://www.youtube.com/embed/dQw4w9WgXcQ",
+      painTitle:"Du willst mehr als nur einen Job.",
+      pains:["Du willst morgens gern zur Arbeit gehen.","Du willst Kolleg:innen, die zu Freunden werden.","Du willst gesehen werden – nicht nur als Nummer.","Genau dafür stehen wir."],
+      visionTitle:"Das macht uns besonders:",
+      visionHead:"KULTUR, DIE MAN SPÜRT",
+      visionLines:["Offene Türen und ehrliche Kommunikation.","Gemeinsame Team-Events und echte Freundschaften.","Eine Führung, die zuhört und unterstützt.","Raum, dich einzubringen und zu wachsen."],
+      benefitsKicker:"DAS ERWARTET DICH",
+      benefitsTitle:"Mehr als nur ein Arbeitsplatz",
+      benefits:[["🤝","Ein Team, das zusammenhält","Zusammenarbeit wird bei uns wirklich gelebt."],["💶","Faire, attraktive Vergütung","Leistung, die sich auch auf dem Konto zeigt."],["📈","Echte Entwicklungschancen","Weiterbildung und Perspektiven, die dich weiterbringen."],["🕒","Planbare Arbeitszeiten","Strukturen, die zu deinem Leben passen."],["🎉","Team-Spirit","Events, Rituale und ein echtes Wir-Gefühl."]],
+      testimonials:[{text:"Vom ersten Tag an habe ich mich willkommen gefühlt. Hier zählt der Mensch, nicht nur die Leistung.",name:"Anna L., seit 3 Jahren dabei"},{text:"Ich bin geblieben, weil das Team einfach besonders ist.",name:"Jonas P."}],
+      proofTitle:"Warum Menschen bei uns bleiben",
+      proofLines:["Über 90 % unserer Mitarbeitenden empfehlen uns weiter.","Durchschnittliche Betriebszugehörigkeit über 6 Jahre.","Persönliche Einarbeitung und feste Ansprechpartner."],
+      closeTitle:"Willst du Teil davon werden?",
+      closeText:"Lerne uns unverbindlich kennen – wir freuen uns auf dich.",
+      finalCta:"Jetzt kennenlernen"
+    }), {hideProgress:true});
+    const q1=newStep("Frage 1",[_choice("Was ist dir am wichtigsten?",[["Gutes Team",2],["Faire Bezahlung",2],["Entwicklung",2],["Flexibilität",2]])]);
+    const form=newStep("Kontakt",[_h("Lerne uns kennen",22,"center"),_t("Trag dich ein, wir melden uns persönlich bei dir.","center"),_form("Jetzt bewerben",recFields())]);
+    const ty=newStep("Danke",[_h("Schön, dass du dabei sein willst! 🎉",24,"center"),_t("Wir melden uns innerhalb von 48 Stunden bei dir.","center")]); ty.logic.defaultNext="end";
+    f.steps=[land,q1,form,ty]; return f; } },
+  rec_jobad:{ name:"Recruiting: Stellenanzeige", build:()=>{
+    const f=newFunnel("Stellenanzeige"); f.settings.primaryColor="#2563eb";
+    const land=newStep("Stelle",[
+      _hero({badge:"FESTANSTELLUNG · M/W/D · AB SOFORT", headline:"[Jobtitel] (m/w/d) gesucht", text:"Voll- oder Teilzeit · unbefristet · faire Bezahlung. Werde Teil unseres Teams und gestalte mit uns die Zukunft.", cta:"Jetzt in 60 Sek. bewerben"}),
+      _badges(["★ Top-Arbeitgeber","🔒 Sichere Bewerbung","⚡ 60 Sekunden"]),_sp(12),
+      _h("Über die Stelle",22,"center"),
+      _t("Wir suchen Verstärkung für unser Team. Dich erwartet eine abwechslungsreiche Tätigkeit mit Verantwortung, ein wertschätzendes Umfeld und echte Entwicklungsmöglichkeiten – hier den Text an deine Stelle anpassen.","left"),_sp(14),
+      _h("Deine Aufgaben",22,"center"),
+      _list(["Aufgabe 1 – z. B. Betreuung & Beratung unserer Kunden","Aufgabe 2 – z. B. eigenverantwortliche Projektarbeit","Aufgabe 3 – z. B. Zusammenarbeit im Team","Aufgabe 4 – hier individuell anpassen"]),
+      _btn("Jetzt bewerben","cta"),_sp(14),
+      _h("Dein Profil",22,"center"),
+      _list(["Abgeschlossene Ausbildung oder relevante Berufserfahrung","Teamgeist, Zuverlässigkeit und Eigeninitiative","Freude am Umgang mit Menschen","Gute Deutschkenntnisse"]),_sp(14),
+      _kick("DAS BIETEN WIR"),
+      _h("Deine Vorteile bei uns",24,"center"),
+      _feat("💶","Faire, übertarifliche Bezahlung","Plus Zuschläge, Prämien und Sonderzahlungen."),
+      _feat("📅","Sicherer Arbeitsplatz","Unbefristete Festanstellung in einem stabilen Unternehmen."),
+      _feat("📈","Weiterentwicklung","Fort- und Weiterbildungen, die dich voranbringen."),
+      _feat("🕒","Planbare Arbeitszeiten","Verlässliche Dienstpläne, die zu deinem Leben passen."),
+      _feat("🤝","Starkes Team","Kolleg:innen, auf die du dich verlassen kannst."),
+      _sp(6),_btn("Jetzt bewerben","cta"),_sp(14),
+      _kick("DAS SAGEN UNSERE LEUTE"),
+      _tst([{text:"Bester Arbeitgeber, den ich je hatte – faire Bezahlung und ein Team wie eine Familie.",name:"Petra S."},{text:"Schneller, unkomplizierter Bewerbungsprozess. In einer Woche hatte ich den Job.",name:"Ali K."}]),
+      _sp(8),
+      _h("Klingt nach dir?",22,"center"),
+      _t("Dann bewirb dich jetzt in unter 60 Sekunden – ohne Lebenslauf, ohne Anschreiben.","center"),
+      _sp(6),_btn("Jetzt in 60 Sek. bewerben","cta")
+    ],{hideProgress:true});
+    const form=newStep("Bewerbung",[_h("Deine Bewerbung",22,"center"),_t("Wohin dürfen wir uns bei dir melden?","center"),_form("Bewerbung absenden",recFields())]);
+    const ty=newStep("Danke",[_h("Danke für deine Bewerbung! 🎉",24,"center"),_t("Wir melden uns zeitnah persönlich bei dir.","center")]); ty.logic.defaultNext="end";
+    f.steps=[land,form,ty]; return f; } },
+  rec_termin:{ name:"Recruiting: Kennenlern-Termin", build:()=>{
+    const f=newFunnel("Kennenlern-Termin"); f.settings.primaryColor="#7c3aed";
+    const land=newStep("Start", recLanding({
+      kicker:"UNVERBINDLICHES KENNENLERNEN",
+      h1:"Lerne uns in einem kurzen Gespräch kennen",
+      sub:"Ehrlich, auf Augenhöhe, ohne Verpflichtung. In 15 Minuten findest du heraus, ob wir zusammenpassen – und wir lernen dich kennen.",
+      cta:"Termin sichern",
+      painTitle:"Du suchst nicht irgendeinen Job.",
+      pains:["Du willst wissen, ob das Team wirklich passt.","Du willst ehrliche Antworten – keine Floskeln.","Du willst keinen anonymen Bewerbungsmarathon.","Genau dafür ist dieses Gespräch da."],
+      visionTitle:"So läuft das Gespräch:",
+      visionHead:"15 MINUTEN, DIE SICH LOHNEN",
+      visionLines:["Du lernst dein zukünftiges Team kennen.","Du stellst alle Fragen, die dir wichtig sind.","Wir klären gemeinsam, ob es passt – ganz ehrlich.","Kein Druck, keine Verpflichtung."],
+      benefitsTitle:"Darum lohnt sich der Wechsel",
+      benefits:[["💶","Faire Bezahlung","Übertariflich und verlässlich."],["🤝","Echtes Team","Zusammenhalt statt Ellenbogen."],["📈","Perspektive","Entwicklung statt Stillstand."],["🕒","Planbare Zeiten","Dienstpläne, die zu dir passen."],["❤️","Wertschätzung","Du wirst gehört und ernst genommen."]],
+      testimonials:[{text:"Das Gespräch war locker und ehrlich. Danach wusste ich sofort: Hier will ich arbeiten.",name:"Tobias W."},{text:"Endlich ein Arbeitgeber, der sich Zeit nimmt. Top!",name:"Sandra F."}],
+      proofTitle:"Worauf du dich verlassen kannst",
+      proofLines:["Persönliches Gespräch statt anonymer Absage.","Ehrliche Einblicke in den echten Arbeitsalltag.","Schnelle, verbindliche Rückmeldung."],
+      closeTitle:"Bereit für ein ehrliches Gespräch?",
+      closeText:"Sichere dir jetzt deinen unverbindlichen Termin – es kostet dich nur 60 Sekunden.",
+      finalCta:"Jetzt Termin sichern"
+    }), {hideProgress:true});
+    const q1=newStep("Frage 1",[_choice("Wie viel Erfahrung bringst du mit?",[["Mehr als 3 Jahre",3],["1–3 Jahre",2],["Erste Erfahrung",1],["Quereinsteiger/in",1]])]);
+    const q2=newStep("Frage 2",[_choice("Wann möchtest du starten?",[["Ab sofort",3],["In 1 Monat",2],["Flexibel",1]])]);
+    const form=newStep("Kontakt",[_h("Deine Kontaktdaten",22,"center"),_t("Damit wir den Termin bestätigen können.","center"),_form("Termin anfragen",recFields())]);
+    const book=newStep("Termin",[_h("Wähle deinen Wunschtermin",22,"center"),_t("Buche direkt einen freien Slot (Calendly/Cal.com-URL im Embed-Block hinterlegen):","center"),BLOCK_DEFS.embed.make(),_btn("Weiter","cta")]);
+    const ty=newStep("Danke",[_h("Bis gleich! 🎉",24,"center"),_t("Dein Termin ist angefragt – du erhältst gleich eine Bestätigung.","center")]); ty.logic.defaultNext="end";
+    f.steps=[land,q1,q2,form,book,ty]; return f; } },
+  rec_quer:{ name:"Recruiting: Quereinsteiger", build:()=>{
+    const f=newFunnel("Quereinsteiger-Funnel"); f.settings.primaryColor="#ea580c";
+    const land=newStep("Start", recLanding({
+      kicker:"QUEREINSTEIGER WILLKOMMEN",
+      h1:"Kein Vorwissen? Kein Problem.",
+      sub:"Starte als Quereinsteiger/in bei uns durch. Wir bilden dich vollständig aus und begleiten dich vom ersten Tag an – fair bezahlt von Anfang an.",
+      cta:"Quereinstieg starten",
+      painTitle:"Du willst etwas verändern – aber traust dich nicht?",
+      pains:["Ich habe doch keine Ausbildung in dem Bereich …","Ob ich das überhaupt schaffe?","Werde ich am Anfang allein gelassen?","Diese Sorgen kennen wir – und nehmen sie dir."],
+      visionTitle:"Bei uns gelingt der Einstieg:",
+      visionHead:"VOM ANFÄNGER ZUM PROFI",
+      visionLines:["Strukturierte Einarbeitung – Schritt für Schritt.","Ein fester Mentor begleitet dich persönlich.","Faires Gehalt schon ab dem ersten Tag.","Echte Aufstiegschancen, ganz ohne Vorerfahrung."],
+      benefitsKicker:"DARUM SCHAFFST DU DEN EINSTIEG",
+      benefitsTitle:"Wir machen dich fit",
+      benefits:[["🎓","Strukturierte Einarbeitung","Wir zeigen dir alles in deinem Tempo."],["🤝","Mentor an deiner Seite","Du wirst nie allein gelassen."],["💶","Faires Gehalt von Anfang an","Auch ohne Vorerfahrung."],["📈","Aufstiegschancen","Entwickle dich vom Einsteiger zur Fachkraft."],["❤️","Geduldiges Team","Fragen sind ausdrücklich erwünscht."]],
+      testimonials:[{text:"Vor einem Jahr hatte ich null Erfahrung – heute bilde ich selbst neue Kolleg:innen ein. Trau dich!",name:"Kevin H., Quereinsteiger"},{text:"Ich wurde super eingearbeitet und nie unter Druck gesetzt.",name:"Melanie B."}],
+      proofTitle:"Quereinsteiger sind bei uns ganz normal",
+      proofLines:["Über 40 % unseres Teams sind erfolgreiche Quereinsteiger.","Strukturiertes Einarbeitungsprogramm mit festen Ansprechpartnern.","Bezahlte Einarbeitung – du lernst und verdienst gleichzeitig."],
+      closeTitle:"Trau dich – wir fangen dich auf.",
+      closeText:"Du brauchst keine Vorerfahrung, nur die Bereitschaft, Neues zu lernen. Den Rest übernehmen wir.",
+      finalCta:"Jetzt Quereinstieg starten"
+    }), {hideProgress:true});
+    const q1=newStep("Frage 1",[_choice("Bist du bereit, Neues zu lernen?",[["👉  Auf jeden Fall!",2],["👉  Ja, mit der richtigen Anleitung",2]])]);
+    const q2=newStep("Frage 2",[_choice("Wann könntest du starten?",[["Ab sofort",3],["In 1 Monat",2],["Flexibel",1]])]);
+    const form=newStep("Kontakt",[_h("Starte jetzt durch",22,"center"),_form("Jetzt bewerben",recFields())]);
+    const ty=newStep("Danke",[_h("Willkommen an Bord! 🎉",24,"center"),_t("Wir melden uns innerhalb von 48 Stunden bei dir.","center")]); ty.logic.defaultNext="end";
+    f.steps=[land,q1,q2,form,ty]; return f; } }
+};
+
+/* ============================================================
+   ROOT RENDER / ROUTER
+   ============================================================ */
+function render(){
+  const root=document.getElementById("root");
+  if(UI.view==="builder"){ root.innerHTML=sidebar()+'<div class="main">'+renderBuilder()+'</div>'; bindBuilder(); bindNav(); return; }
+  let body="";
+  switch(UI.view){
+    case "dashboard": body=renderDashboard(); break;
+    case "funnels":   body=renderFunnels(); break;
+    case "leads":     body=renderLeads(); break;
+    case "analytics": body=renderAnalytics(); break;
+    case "domains":   body=renderDomains(); break;
+    case "help":      body=renderHelp(); break;
+    default:          body=renderDashboard();
+  }
+  root.innerHTML = sidebar() + '<div class="main">'+body+'</div>';
+  bindNav();
+  if(UI.view==="leads") bindLeads();
+  if(UI.view==="analytics") bindAnalytics();
+  if(UI.view==="funnels") bindFunnels();
+  if(UI.view==="domains") bindDomains();
+}
+
+function sidebar(){
+  const items=[
+    ["dashboard","▦","Dashboard"],
+    ["funnels","⛢","Funnels"],
+    ["leads","☰","Leads / CRM"],
+    ["analytics","📈","Analytics"],
+    ["domains","🌐","Domains"],
+    ["help","?","Hilfe & Setup"]
+  ];
+  return '<div class="side"><div class="brand"><span class="dot"></span><div>FunnelForge'
+    +'<small>Funnel Builder · Prototyp</small></div></div><div class="nav">'
+    + items.map(i=>'<button data-nav="'+i[0]+'" class="'+(UI.view===i[0]?"active":"")+'">'
+        +'<span class="ico">'+i[1]+'</span>'+i[2]+'</button>').join("")
+    + '</div><div class="foot">Daten liegen lokal in deinem Browser.<br>v1.0 · '+DB.funnels.length+' Funnels</div></div>';
+}
+function bindNav(){
+  document.querySelectorAll("[data-nav]").forEach(b=>{
+    b.onclick=()=>{ UI.view=b.getAttribute("data-nav"); window.scrollTo(0,0); render(); };
+  });
+}
+
+/* ============================================================
+   DASHBOARD
+   ============================================================ */
+function rangeStart(range){
+  const d=new Date(); d.setHours(0,0,0,0);
+  if(range==="today") return d.getTime();
+  if(range==="7d") return d.getTime()-6*864e5;
+  if(range==="30d") return d.getTime()-29*864e5;
+  return 0;
+}
+function eventsFor(funnelId, range){
+  const start=rangeStart(range||"all");
+  return DB.events.filter(e=>(!funnelId||e.funnelId===funnelId) && e.ts>=start);
+}
+function funnelStats(funnelId, range){
+  const ev=eventsFor(funnelId,range);
+  const starts=ev.filter(e=>e.type==="start").length;
+  const leads=ev.filter(e=>e.type==="lead").length;
+  const completes=ev.filter(e=>e.type==="complete").length;
+  const clicks=ev.filter(e=>e.type==="click").length;
+  const views=ev.filter(e=>e.type==="view").length;
+  const uniq=new Set(ev.map(e=>e.visitor)).size;
+  return { starts, leads, completes, clicks, views, uniq,
+    cr: starts? leads/starts:0, ctr: views? clicks/views:0 };
+}
+function renderDashboard(){
+  const s=funnelStats(null,UI.range);
+  const totalLeads=DB.leads.length;
+  let html='<div class="topbar"><h1>Dashboard</h1><div class="flex gap center"><button class="btn primary" data-oneshot>⚡ Recruiting One-Shot</button>'+rangeSelector()+'</div></div><div class="content">';
+  html+='<div class="grid cards">'
+    + kpi("Funnels gesamt", DB.funnels.length, DB.funnels.filter(f=>f.published).length+" veröffentlicht")
+    + kpi("Funnel-Starts", s.starts, "im Zeitraum")
+    + kpi("Leads gesamt", totalLeads, s.leads+" im Zeitraum")
+    + kpi("Ø Conversion-Rate", pct(s.cr), "Leads / Starts")
+    + '</div>';
+
+  html+='<div class="section-title">Deine Funnels</div>';
+  if(DB.funnels.length===0){
+    html+='<div class="card"><p class="muted">Noch keine Funnels. Leg direkt los:</p>'
+      +'<button class="btn primary" data-new-funnel>+ Funnel erstellen</button></div>';
+  }else{
+    html+='<div class="grid cards">';
+    DB.funnels.forEach(f=>{
+      const fs=funnelStats(f.id,UI.range);
+      html+='<div class="card funnel-card"><div class="flex between center">'
+        +'<strong>'+esc(f.name)+'</strong>'
+        +(f.published?'<span class="badge green">live</span>':'<span class="badge gray">Entwurf</span>')+'</div>'
+        +'<div class="meta">'+f.steps.length+' Schritte · erstellt '+fmtDateShort(f.createdAt)+'</div>'
+        +'<div class="mini-stats"><div><b>'+fs.starts+'</b>Starts</div><div><b>'+fs.leads+'</b>Leads</div><div><b>'+pct(fs.cr)+'</b>CR</div></div>'
+        +'<div class="row"><button class="btn sm" data-edit="'+f.id+'">Bearbeiten</button>'
+        +'<button class="btn sm" data-play="'+f.id+'">Vorschau</button>'
+        +'<button class="btn sm" data-analytics="'+f.id+'">Analytics</button></div></div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  setTimeout(bindDashboard,0);
+  return html;
+}
+function kpi(label,val,sub){
+  return '<div class="card kpi"><div class="label">'+esc(label)+'</div><div class="val">'+esc(val)+'</div><div class="sub">'+esc(sub||"")+'</div></div>';
+}
+function rangeSelector(){
+  const opts=[["today","Heute"],["7d","7 Tage"],["30d","30 Tage"],["all","Gesamt"]];
+  return '<div class="tabs" style="margin:0">'+opts.map(o=>'<button class="t '+(UI.range===o[0]?"active":"")+'" data-range="'+o[0]+'">'+o[1]+'</button>').join("")+'</div>';
+}
+function bindDashboard(){
+  document.querySelectorAll("[data-range]").forEach(b=>b.onclick=()=>{UI.range=b.getAttribute("data-range");render();});
+  const nf=document.querySelector("[data-new-funnel]"); if(nf) nf.onclick=openNewFunnelModal;
+  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openBuilder(b.getAttribute("data-edit")));
+  document.querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>startPlayer(b.getAttribute("data-play")));
+  document.querySelectorAll("[data-analytics]").forEach(b=>b.onclick=()=>{UI.view="analytics";UI.analyticsFunnel=b.getAttribute("data-analytics");render();});
+}
+
+/* ============================================================
+   FUNNELS LIST
+   ============================================================ */
+function renderFunnels(){
+  let html='<div class="topbar"><h1>Funnels</h1><div class="flex gap center wrap"><button class="btn" data-oneshot>⚡ Recruiting</button><button class="btn" data-oneshot-webinar>⚡ Webinar</button><button class="btn" id="import-funnel">⬆ Import</button><button class="btn primary" data-new-funnel>+ Neuer Funnel</button></div></div><div class="content">';
+  if(DB.funnels.length===0){
+    html+='<div class="card"><p class="muted">Noch keine Funnels erstellt.</p><button class="btn primary" data-new-funnel>+ Funnel erstellen</button></div>';
+  }else{
+    html+='<table><thead><tr><th>Name</th><th>Status</th><th>Schritte</th><th>Leads</th><th>Erstellt</th><th></th></tr></thead><tbody>';
+    DB.funnels.forEach(f=>{
+      const fs=funnelStats(f.id,"all");
+      html+='<tr><td><strong>'+esc(f.name)+'</strong></td>'
+        +'<td>'+(f.published?'<span class="badge green">live</span>':'<span class="badge gray">Entwurf</span>')+'</td>'
+        +'<td>'+f.steps.length+'</td><td>'+fs.leads+'</td><td class="muted">'+fmtDateShort(f.createdAt)+'</td>'
+        +'<td><div class="flex gap"><button class="btn sm" data-edit="'+f.id+'">Bearbeiten</button>'
+        +'<button class="btn sm" data-play="'+f.id+'">Vorschau</button>'
+        +'<button class="btn sm" data-dup="'+f.id+'">Duplizieren</button>'
+        +'<button class="btn sm danger" data-del="'+f.id+'">Löschen</button></div></td></tr>';
+    });
+    html+='</tbody></table>';
+  }
+  html+='</div>';
+  return html;
+}
+function bindFunnels(){
+  document.querySelectorAll("[data-new-funnel]").forEach(b=>b.onclick=openNewFunnelModal);
+  document.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>openBuilder(b.getAttribute("data-edit")));
+  document.querySelectorAll("[data-play]").forEach(b=>b.onclick=()=>startPlayer(b.getAttribute("data-play")));
+  document.querySelectorAll("[data-dup]").forEach(b=>b.onclick=()=>{
+    const f=getFunnel(b.getAttribute("data-dup")); const c=deepClone(f);
+    c.id=uid("fn"); c.name=f.name+" (Kopie)"; c.createdAt=now(); c.published=false;
+    c.steps.forEach(st=>{ st.id=uid("st"); st.blocks.forEach(bl=>{ if(bl.options) bl.options.forEach(o=>o.id=uid("o")); }); });
+    DB.funnels.push(c); saveDB(); render(); toast("Funnel dupliziert");
+  });
+  document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{
+    const id=b.getAttribute("data-del");
+    confirmModal("Funnel löschen?","Alle zugehörigen Daten bleiben erhalten, der Funnel wird entfernt.",()=>{
+      DB.funnels=DB.funnels.filter(f=>f.id!==id); saveDB(); render(); toast("Funnel gelöscht");
+    });
+  });
+}
+function openNewFunnelModal(){
+  const opts=Object.keys(TEMPLATES).map(k=>'<option value="'+k+'">'+esc(TEMPLATES[k].name)+'</option>').join("");
+  showModal('<h3>Neuen Funnel erstellen</h3>'
+    +'<div class="field"><label>Name</label><input id="nf-name" value="Mein Funnel"></div>'
+    +'<div class="field"><label>Vorlage</label><select id="nf-tpl">'+opts+'</select>'
+    +'<div class="hint">Tipp: Die „Recruiting:"-Vorlagen sind fertige Bewerbungs-Funnels – nur Texte anpassen.</div></div>'
+    +'<div class="actions"><button class="btn ghost" data-close>Abbrechen</button>'
+    +'<button class="btn primary" id="nf-create">Erstellen & bearbeiten</button></div>');
+  document.getElementById("nf-tpl").value="rec_express";
+  document.getElementById("nf-create").onclick=()=>{
+    const name=document.getElementById("nf-name").value.trim()||"Neuer Funnel";
+    const tpl=document.getElementById("nf-tpl").value;
+    const f=TEMPLATES[tpl].build(); f.name=name;
+    DB.funnels.push(f); saveDB(); closeModal(); openBuilder(f.id);
+  };
+}
+function exportFunnel(id){
+  const f=getFunnel(id); if(!f) return;
+  const blob=new Blob([JSON.stringify(f,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=(f.name||"funnel").replace(/\W+/g,"_")+".json"; a.click();
+  toast("Funnel exportiert");
+}
+function importFunnelDialog(){
+  const inp=document.createElement("input"); inp.type="file"; inp.accept="application/json,.json";
+  inp.onchange=()=>{ const file=inp.files[0]; if(!file) return; const r=new FileReader();
+    r.onload=()=>{ try{ const f=JSON.parse(r.result);
+      if(!f||!Array.isArray(f.steps)){ toast("Ungültige Funnel-Datei"); return; }
+      f.id=uid("fn"); f.createdAt=now(); f.published=false;
+      if(!f.settings) f.settings={primaryColor:"#4f7cff"};
+      f.steps.forEach(st=>{ st.id=uid("st"); (st.blocks||[]).forEach(bl=>{ if(bl.options) bl.options.forEach(o=>o.id=uid("o")); }); });
+      DB.funnels.push(f); saveDB(); render(); toast("Funnel importiert");
+    }catch(e){ toast("Datei konnte nicht gelesen werden"); } };
+    r.readAsText(file); };
+  inp.click();
+}
+function showEmbed(id){
+  const url=location.href.split("#")[0]+"#funnel="+id;
+  const snippet='<iframe src="'+url+'" style="width:100%;height:720px;border:0" allowfullscreen></iframe>';
+  showModal('<h3>Funnel einbetten</h3><p class="muted" style="font-size:13px">Kopiere diesen Code in deine Website:</p>'
+    +'<code class="dns">'+esc(snippet)+'</code>'
+    +'<div class="notice">Funktioniert öffentlich, sobald die Datei gehostet ist (siehe Domains).</div>'
+    +'<div class="actions"><button class="btn primary" data-close>Schließen</button></div>');
+}
+/* ---------- Standalone player (only used inside exported HTML; references FUNNEL/PLAYER defined there) ---------- */
+function saStartPlayer(){ PLAYER.stepIndex=0;PLAYER.score=0;PLAYER.answers={};PLAYER.points={};PLAYER.history=[];PLAYER.timers=[];PLAYER.fields={};PLAYER.utm=captureParams();PLAYER.device=detectDevice();
+  injectPixel(FUNNEL);
+  if(FUNNEL.settings.fontFamily){var l=document.createElement("link");l.rel="stylesheet";l.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(FUNNEL.settings.fontFamily)+":wght@400;600;700;800&display=swap";document.head.appendChild(l);}
+  pixelTrack(FUNNEL,"ViewContent","view_content","ViewContent",{content_name:FUNNEL.name});
+  saRenderPlayer(); }
+function saRenderPlayer(){ var f=FUNNEL, step=f.steps[PLAYER.stepIndex];
+  (PLAYER.timers||[]).forEach(function(t){clearInterval(t);}); PLAYER.timers=[];
+  var c=f.settings.primaryColor||"#4f7cff", exp=f.settings.style==="express";
+  var inner=""; if(exp){ if(step.meta&&step.meta.qlabel) inner+='<div class="r-qbar" style="background:'+esc(c)+'">'+esc(step.meta.qlabel)+'</div>'; }
+  else inner+='<div class="r-progress"><div style="width:'+((PLAYER.stepIndex+1)/f.steps.length*100)+'%"></div></div>';
+  step.blocks.forEach(function(bl,i){ inner+='<div data-pi="'+i+'">'+renderPlayerBlock(bl,f)+'</div>'; });
+  if(!f.settings.hideBranding) inner+='<div style="text-align:center;margin-top:18px;font-size:11px;color:#b3bccb">⚡ FunnelForge</div>';
+  var font=f.settings.fontFamily?("font-family:'"+esc(f.settings.fontFamily)+"',sans-serif"):"";
+  document.getElementById("app").innerHTML='<div class="sa-stage"><div class="sa-card step-anim" id="player-inner" style="'+font+'">'+(PLAYER.history.length?'<button class="sa-back" id="sa-back">← Zurück</button>':'')+inner+'</div></div>';
+  var pb=document.getElementById("sa-back"); if(pb) pb.onclick=function(){ if(PLAYER.history.length){ PLAYER.stepIndex=PLAYER.history.pop(); saRenderPlayer(); } };
+  bindPlayerStep(f,step); }
+function exportStandalone(funnelId){
+  const f=getFunnel(funnelId); if(!f) return;
+  const css=(document.querySelector("style")||{}).textContent||"";
+  const helpers=[esc,pad2,uid,now,personalize,shade,brandGradient,ctaBg,safeUrl,pickTier,fieldInputHTML,fieldRowHTML,richBlockHTML,renderPlayerBlock,confetti,downloadICS,detectDevice,captureParams,recomputeScore,injectPixel,pixelTrack,bindPlayerStep,gotoNext,finishFunnel,saveLead,validatePlayerForm,saStartPlayer,saRenderPlayer];
+  const fnSrc=helpers.map(fn=>fn.toString()).join("\n");
+  const saCss="body{margin:0;background:radial-gradient(1100px 560px at 50% -8%,#1b2233 0%,#0b0d11 62%);min-height:100vh}"
+    +".sa-stage{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:24px}"
+    +".sa-card{width:100%;max-width:440px;background:#fff;color:#1a1f29;border-radius:18px;padding:26px 22px 40px;box-shadow:0 18px 64px rgba(0,0,0,.4)}"
+    +".sa-back{background:#f0f2f7;border:1px solid #e2e6ee;color:#5a6478;border-radius:8px;padding:6px 11px;font-size:12px;margin-bottom:12px;cursor:pointer}"
+    +".sa-toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#15181f;color:#fff;border:1px solid #2a2f3a;padding:11px 16px;border-radius:10px;font-size:13px;z-index:999}"
+    +"@media(max-width:480px){.sa-stage{padding:0}.sa-card{max-width:100%;border-radius:0;min-height:100vh}.sa-card .r-qbar{margin:-26px -22px 22px}}";
+  const boot="var FUNNEL="+JSON.stringify(f)+";"
+    +"var PLAYER={funnelId:FUNNEL.id,stepIndex:0,score:0,answers:{},points:{},history:[],timers:[],fields:{},utm:{},device:''};"
+    +"var PIXELS={meta:new Set(),ga4:new Set(),tiktok:new Set()};var DB={leads:[]};"
+    +"var EXP_CTA="+JSON.stringify(EXP_CTA)+";var COUNTRY_CODES="+JSON.stringify(COUNTRY_CODES)+";"
+    +"function track(){}function getFunnel(){return FUNNEL;}function render(){}"
+    +"function toast(m){var t=document.createElement('div');t.className='sa-toast';t.textContent=m;document.body.appendChild(t);setTimeout(function(){t.parentNode&&t.parentNode.removeChild(t);},2600);}"
+    +"var startPlayer=function(){return saStartPlayer();},renderPlayer=function(){return saRenderPlayer();};"
+    +fnSrc
+    +"document.addEventListener('DOMContentLoaded',saStartPlayer);";
+  const html='<!DOCTYPE html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(f.name)+'</title><style>'+css+"\n"+saCss+'</style></head><body><div id="app"></div><'+'script>'+boot+'<'+'/script></body></html>';
+  const blob=new Blob([html],{type:"text/html"}); const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=(f.name||"funnel").replace(/\W+/g,"_")+"_standalone.html"; a.click();
+  showModal('<h3>Standalone-Funnel exportiert ✅</h3><p class="muted" style="font-size:13px">Die Datei <b>'+esc((f.name||"funnel").replace(/\W+/g,"_"))+'_standalone.html</b> wurde heruntergeladen. Sie enthält den kompletten Funnel inkl. Player, Pixel und Webhook – <b>ohne</b> Builder/Daten.</p>'
+    +'<div class="notice">So nutzt dein Kunde sie: Datei auf eigenem Hosting/eigener Domain hochladen (z.B. Netlify Drop oder Webspace). Dann laufen Meta/GA4/TikTok-Pixel und Webhook-Leads <b>echt</b> auf seiner Domain.</div>'
+    +'<div class="actions"><button class="btn primary" data-close>Verstanden</button></div>');
+}
+/* ---------- Webinar One-Shot ---------- */
+function buildWebinarFunnel(o){
+  const f=newFunnel(o.title||"Webinar");
+  f.settings.primaryColor=o.color||"#4f7cff"; f.settings.confetti=true;
+  f.meta={type:"webinar",webinarTitle:o.title||"Webinar",webinarDate:o.date||""};
+  const H=(t,s,a)=>{const b=BLOCK_DEFS.headline.make();b.text=t;if(s)b.size=s;b.align=a||"left";return b;};
+  const T=(t,a)=>{const b=BLOCK_DEFS.text.make();b.text=t;b.align=a||"left";return b;};
+  const FEAT=(icon,title,text)=>{const b=BLOCK_DEFS.feature.make();b.icon=icon;b.title=title;b.text=text;return b;};
+  const KICK=(t)=>{const b=BLOCK_DEFS.headline.make();b.text=t;b.size=13;b.align="center";return b;};
+  const land=newStep("Anmeldung",[]);
+  land.blocks.push(KICK("KOSTENLOSES LIVE-WEBINAR"));
+  land.blocks.push(H(o.title||"",28,"center"));
+  land.blocks.push(T(o.subtitle||"Sichere dir jetzt deinen Platz und sei live dabei.","center"));
+  if(o.date){ const tm=BLOCK_DEFS.timer.make(); tm.mode="date"; tm.endDate=o.date; tm.label="Webinar startet in"; land.blocks.push(tm); }
+  if(o.video){ const v=BLOCK_DEFS.video.make(); v.url=o.video; land.blocks.push(v); }
+  const cta1=BLOCK_DEFS.button.make(); cta1.label="Jetzt kostenlos anmelden"; cta1.variant="cta"; land.blocks.push(cta1);
+  land.blocks.push({type:"spacer",height:12});
+  land.blocks.push(H("Das nimmst du mit",22,"center"));
+  land.blocks.push(FEAT("🎯","Konkrete Strategien","Sofort umsetzbare Schritte, die du direkt anwenden kannst."));
+  land.blocks.push(FEAT("💬","Live-Q&A","Stelle "+(o.presenter||"dem Speaker")+" live deine Fragen."));
+  land.blocks.push(FEAT("🎁","Exklusive Vorlagen","Kostenlose Materialien nur für Teilnehmer."));
+  const cta=BLOCK_DEFS.button.make(); cta.label="Platz jetzt sichern"; cta.variant="cta"; land.blocks.push(cta);
+  const reg=newStep("Kontakt",[]);
+  reg.blocks.push(H("Fast geschafft – melde dich an",22,"center"));
+  const fr=BLOCK_DEFS.form.make(); fr.submitLabel="Platz sichern";
+  fr.fields=[{key:"vorname",label:"Vorname",type:"text",required:true},{key:"email",label:"E-Mail",type:"email",required:true}];
+  reg.blocks.push(fr);
+  const conf=newStep("Bestätigt",[]); conf.logic.defaultNext="end";
+  conf.blocks.push(H("Du bist angemeldet, {{vorname}}! 🎉",24,"center"));
+  conf.blocks.push(T("Wir sehen uns im Webinar"+(o.date?(" am "+String(o.date).replace("T"," um ")):"")+". Trag dir den Termin direkt in deinen Kalender ein:","center"));
+  const ics=BLOCK_DEFS.button.make(); ics.label="📅 Zum Kalender hinzufügen"; ics.action="ics"; conf.blocks.push(ics);
+  f.steps=[land,reg,conf];
+  return f;
+}
+function openWebinarModal(){
+  showModal('<h3>⚡ Webinar-Funnel — One-Shot</h3>'
+    +'<p class="muted" style="font-size:13px;margin-top:-6px">Hero + Countdown + Anmeldung + Bestätigung mit Kalender-Eintrag (.ics).</p>'
+    +'<div class="field"><label>Webinar-Titel *</label><input id="wb-title" placeholder="z.B. In 60 Minuten zu mehr Kunden"></div>'
+    +'<div class="field"><label>Untertitel / Versprechen</label><input id="wb-sub" placeholder="Was die Teilnehmer mitnehmen"></div>'
+    +'<div class="split"><div class="field"><label>Datum & Uhrzeit *</label><input id="wb-date" type="datetime-local"></div>'
+    +'<div class="field"><label>Vortragende/r</label><input id="wb-presenter" placeholder="Name"></div></div>'
+    +'<div class="field"><label>Video-Embed-URL (optional)</label><input id="wb-video" placeholder="https://www.youtube.com/embed/..."></div>'
+    +'<div class="field"><label>Brandfarbe</label><input id="wb-color" type="color" value="#4f7cff" style="height:42px;padding:4px"></div>'
+    +'<div class="actions"><button class="btn ghost" data-close>Abbrechen</button><button class="btn primary" id="wb-go">⚡ Funnel generieren</button></div>');
+  document.getElementById("wb-go").onclick=()=>{
+    const title=document.getElementById("wb-title").value.trim();
+    const date=document.getElementById("wb-date").value;
+    if(!title||!date){ toast("Titel und Datum sind nötig"); return; }
+    const f=buildWebinarFunnel({title,subtitle:document.getElementById("wb-sub").value.trim(),date,
+      presenter:document.getElementById("wb-presenter").value.trim(),video:document.getElementById("wb-video").value.trim(),
+      color:document.getElementById("wb-color").value});
+    DB.funnels.push(f); saveDB(); closeModal(); toast("Webinar-Funnel erstellt 🎉"); openBuilder(f.id);
+  };
+}
+
+/* ============================================================
+   BUILDER
+   ============================================================ */
+function openBuilder(funnelId){
+  const f=getFunnel(funnelId); if(!f) return;
+  UI.view="builder"; UI.funnelId=funnelId;
+  UI.stepId = f.steps[0]? f.steps[0].id : null;
+  UI.blockId=null;
+  render();
+}
+function renderBuilder(){
+  const f=getFunnel(UI.funnelId);
+  if(!f) return '<div class="content">Funnel nicht gefunden.</div>';
+  const step=getStep(f,UI.stepId)||f.steps[0];
+  if(step) UI.stepId=step.id;
+  // topbar
+  let html='<div class="topbar"><div class="flex center gap">'
+    +'<button class="btn ghost" data-nav="funnels">← Zurück</button>'
+    +'<input id="fn-name" value="'+esc(f.name)+'" style="background:var(--panel2);border:1px solid var(--border);color:var(--txt);padding:8px 12px;border-radius:8px;font-weight:600;font-size:15px;width:260px">'
+    +'</div><div class="flex gap center">'
+    +(f.published?'<span class="badge green">live</span>':'<span class="badge gray">Entwurf</span>')
+    +'<button class="btn" id="b-settings">⚙ Einstellungen</button>'
+    +'<button class="btn" id="b-export" title="Funnel als JSON exportieren">⬇</button>'
+    +'<button class="btn" id="b-standalone" title="Standalone-HTML für eigene Domain (echtes Pixel- & Lead-Tracking)">🌐</button>'
+    +'<button class="btn" id="b-embed" title="Einbettungs-Code">&lt;/&gt;</button>'
+    +'<button class="btn" id="b-preview">▶ Vorschau</button>'
+    +'<button class="btn primary" id="b-publish">'+(f.published?"Aktualisieren":"Veröffentlichen")+'</button>'
+    +'</div></div>';
+
+  html+='<div class="builder">';
+  // Col 1: steps
+  html+='<div class="bcol"><h4>Schritte</h4><div class="steps-list" id="steps-list">';
+  f.steps.forEach((st,i)=>{
+    const cnt=st.blocks.length;
+    html+='<div class="step-item '+(st.id===UI.stepId?"active":"")+'" data-step="'+st.id+'" draggable="true">'
+      +'<div class="si-top"><span class="si-name">'+(i+1)+'. '+esc(st.name)+'</span>'
+      +'<span class="si-actions"><button class="icon-btn" data-stepup="'+st.id+'">↑</button>'
+      +'<button class="icon-btn" data-stepdown="'+st.id+'">↓</button>'
+      +'<button class="icon-btn" data-stepdel="'+st.id+'">✕</button></span></div>'
+      +'<div class="si-meta">'+cnt+' Block'+(cnt!==1?"s":"")+' · weiter → '+nextLabel(f,st)+'</div></div>';
+  });
+  html+='</div><div style="padding:0 10px 14px"><button class="btn sm" id="add-step">+ Schritt hinzufügen</button></div></div>';
+
+  // Col 2: canvas
+  html+='<div class="bcol canvas-wrap"><div class="mobile-note">✏️ Bearbeiten klappt am besten am Desktop. Hier siehst du die Live-Vorschau – zum Testen oben auf „▶ Vorschau".</div><div class="phone"><div class="phone-inner" id="canvas">';
+  html+=renderCanvas(f,step);
+  html+='</div></div><div class="muted" style="margin-top:12px;font-size:12px">Ziehe Blöcke aus der rechten Palette hierher · Klick zum Bearbeiten</div></div>';
+
+  // Col 3: palette + props
+  html+='<div class="bcol"><h4>Block hinzufügen</h4><div class="palette" id="palette">';
+  BLOCK_ORDER.forEach(k=>{
+    html+='<div class="pal-item" draggable="true" data-pal="'+k+'"><span class="pi">'+BLOCK_DEFS[k].icon+'</span>'+esc(BLOCK_DEFS[k].label)+'</div>';
+  });
+  html+='</div><h4>Eigenschaften</h4><div class="props" id="props">'+renderProps(f,step)+'</div>';
+  // step logic
+  if(step){
+    html+='<h4>Schritt-Logik</h4><div class="props"><div class="field"><label>Standard "Weiter" führt zu</label>'
+      +stepTargetSelect(f,step,step.logic.defaultNext,"step-default-next")+'</div></div>';
+  }
+  html+='</div></div>';
+  return html;
+}
+function nextLabel(f,st){
+  const t=st.logic.defaultNext;
+  if(t==="end") return "Ende";
+  if(t==="next"){ const i=f.steps.indexOf(st); return i<f.steps.length-1?(i+2)+". "+f.steps[i+1].name:"Ende"; }
+  const s=getStep(f,t); return s?esc(s.name):"Ende";
+}
+function stepTargetSelect(f,curStep,val,id){
+  let o='<option value="next"'+(val==="next"?" selected":"")+'>Nächster Schritt</option>';
+  o+='<option value="end"'+(val==="end"?" selected":"")+'>Funnel beenden</option>';
+  f.steps.forEach((s,i)=>{ if(s.id!==curStep.id) o+='<option value="'+s.id+'"'+(val===s.id?" selected":"")+'>→ '+(i+1)+'. '+esc(s.name)+'</option>'; });
+  return '<select id="'+id+'">'+o+'</select>';
+}
+function renderCanvas(f,step){
+  if(!step) return '<div class="empty-canvas">Kein Schritt ausgewählt</div>';
+  const exp=f.settings.style==="express";
+  let h="";
+  if(exp){ if(step.meta&&step.meta.qlabel) h+='<div class="r-qbar" style="background:'+esc(f.settings.primaryColor||"#d0292f")+'">'+esc(step.meta.qlabel)+'</div>'; }
+  else if(!(step.meta&&step.meta.hideProgress)) h+='<div class="r-progress"><div style="width:'+((f.steps.indexOf(step)+1)/f.steps.length*100)+'%"></div></div>';
+  h+='<div class="drop-zone" id="drop-zone" data-index="end">';
+  if(step.blocks.length===0){
+    h+='<div class="empty-canvas">Leerer Schritt.<br>Ziehe Blöcke hierher oder klicke rechts auf die Palette.</div>';
+  }
+  step.blocks.forEach((bl,i)=>{
+    h+='<div class="pb-block '+(bl===getSelBlock(step)?"sel":"")+'" data-block="'+i+'" draggable="true">'
+      +'<span class="bgrip">⠿ <button data-blockdel="'+i+'">🗑</button></span>'
+      + renderBlockPreview(bl, f) +'</div>';
+  });
+  h+='</div>';
+  return h;
+}
+function getSelBlock(step){ if(!step||UI.blockId==null) return null; return step.blocks[UI.blockId]||null; }
+function fieldInputHTML(fl, interactive){
+  const name=interactive?(' name="'+esc(fl.key)+'"'):'';
+  const req=fl.required?' required':''; const dis=interactive?'':' disabled';
+  switch(fl.type){
+    case "textarea": return '<textarea'+name+req+dis+' placeholder="'+esc(fl.label)+'"></textarea>';
+    case "select":
+      var opts=(fl.options||"Option A, Option B").split(",").map(o=>'<option>'+esc(o.trim())+'</option>').join("");
+      return '<select'+name+req+dis+'><option value="" disabled selected>'+esc(fl.label)+'</option>'+opts+'</select>';
+    case "date": return '<input type="date"'+name+req+dis+'>';
+    case "time": return '<input type="time"'+name+req+dis+'>';
+    case "tel":
+      var cc='<select class="cc-sel"'+(interactive?'':' disabled')+'>'+COUNTRY_CODES.map(c=>'<option value="'+c[0]+'">'+c[1]+' '+c[0]+'</option>').join("")+'</select>';
+      return '<div class="cc-wrap">'+cc+'<input type="tel"'+name+req+dis+' placeholder="'+esc(fl.label)+'"></div>';
+    default: return '<input type="'+esc(fl.type)+'"'+name+req+dis+' placeholder="'+esc(fl.label)+'">';
+  }
+}
+function fieldRowHTML(fl, interactive){
+  if(fl.type==="checkbox")
+    return '<label class="r-consent"><input type="checkbox"'+(interactive?(' name="'+esc(fl.key)+'"'):'')+(fl.required?' required':'')+(interactive?'':' disabled')+'><span>'+esc(fl.label)+'</span></label>';
+  return '<div class="r-field"><label>'+esc(fl.label)+(fl.required?' *':'')+'</label>'+fieldInputHTML(fl,interactive)+'</div>';
+}
+function pickTier(bl,score){ const t=(bl.tiers||[]).slice().sort((a,b)=>(a.min||0)-(b.min||0)); let ch=t[0]||{title:"",text:""}; t.forEach(x=>{ if(score>=(x.min||0)) ch=x; }); return ch; }
+function richBlockHTML(bl,f,p){
+  p=p||(x=>x); const c=f.settings.primaryColor||"#4f7cff";
+  switch(bl.type){
+    case "list": return '<ul class="r-list">'+(bl.items||[]).map(i=>'<li>'+esc(p(i))+'</li>').join("")+'</ul>';
+    case "feature": return '<div class="r-feature"><div class="fi" style="background:'+hexToRgba(c,.12)+';border-color:'+hexToRgba(c,.28)+'">'+esc(bl.icon||"⭐")+'</div><div><div class="ft">'+esc(p(bl.title))+'</div><div class="fd">'+esc(p(bl.text))+'</div></div></div>';
+    case "badges": return '<div class="r-badges">'+(bl.items||[]).map(i=>'<span>'+esc(p(i))+'</span>').join("")+'</div>';
+    case "kicker": return '<div class="r-kicker2" style="color:'+esc(c)+'">'+esc(p(bl.text))+'</div>';
+    case "faq": return (bl.items||[]).map(it=>'<details class="r-faq"><summary>'+esc(p(it.q))+'</summary><div class="fa">'+esc(p(it.a))+'</div></details>').join("");
+    case "testslider": return '<div class="r-tslide">'+(bl.items||[]).map(it=>'<div class="r-tcard"><div class="tt">„'+esc(p(it.text))+'"</div><div class="tn">— '+esc(p(it.name))+'</div></div>').join("")+'</div>';
+    case "embed":
+      if(bl.url){ var eu=safeUrl(bl.url); return eu? '<iframe class="r-embed" src="'+esc(eu)+'" style="height:'+(bl.height||320)+'px" frameborder="0" allowfullscreen sandbox="allow-scripts allow-forms allow-popups allow-same-origin allow-popups-to-escape-sandbox"></iframe>':'<div class="empty-canvas" style="padding:20px">⧉ Embed — ungültige URL</div>'; }
+      if(bl.html) return '<iframe class="r-embed" style="height:'+(bl.height||320)+'px;width:100%;border:0" sandbox="allow-scripts allow-forms allow-popups" srcdoc="'+esc(bl.html)+'"></iframe>';
+      return '<div class="empty-canvas" style="padding:20px">⧉ Embed — URL oder HTML in Eigenschaften setzen</div>';
+    case "payment":
+      return '<button class="r-btn play-pay" data-payurl="'+esc(bl.url||"")+'" style="background:'+esc(c)+'">'+esc(p(bl.label))+(bl.amount?(' · '+esc(bl.amount)):'')+'</button>';
+  }
+  return "";
+}
+function renderBlockPreview(bl,f){
+  const c=f.settings.primaryColor||"#4f7cff";
+  if(bl.type==="hero") return heroHTML(bl,f);
+  if(["list","feature","badges","kicker","faq","testslider","embed","payment"].includes(bl.type)) return richBlockHTML(bl,f);
+  if(bl.type==="result") return '<div class="card" style="background:#f5f7fb;color:#15181f;border-color:#e2e6ee"><div class="muted" style="font-size:11px">QUIZ-ERGEBNIS (nach Score)</div>'+(bl.tiers||[]).map(t=>'<div style="margin-top:6px"><b>ab '+(t.min||0)+' Pkt:</b> '+esc(t.title)+'</div>').join("")+'</div>';
+  switch(bl.type){
+    case "headline": return '<div class="r-headline" style="font-size:'+(bl.size||26)+'px;text-align:'+(bl.align||"left")+'">'+esc(bl.text)+'</div>';
+    case "text": return '<div class="r-text" style="text-align:'+(bl.align||"left")+'">'+esc(bl.text)+'</div>';
+    case "image": return bl.url? '<img class="r-img" src="'+esc(bl.url)+'" alt="'+esc(bl.alt||"")+'" onerror="this.style.display=\'none\'">' : '<div class="empty-canvas" style="padding:24px">🖼 Bild — URL in Eigenschaften setzen</div>';
+    case "video": return bl.url? '<div style="position:relative;padding-bottom:56%;height:0;border-radius:10px;overflow:hidden;margin:8px 0"><iframe src="'+esc(bl.url)+'" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen></iframe></div>' : '<div class="empty-canvas" style="padding:24px">▶ Video — Embed-URL setzen</div>';
+    case "button": return '<button class="r-btn" style="background:'+(bl.variant==="cta"?ctaBg(f):esc(c))+'">'+esc(bl.label)+'</button>';
+    case "choice":
+      var exC=f.settings.style==="express"?" exp":"";
+      return '<div class="r-q">'+esc(bl.question)+'</div>'+bl.options.map(o=>'<div class="r-choice'+exC+'">'+esc(o.label)+'</div>').join("");
+    case "form":
+      var subBg=ctaBg(f);
+      return bl.fields.map(fl=>fieldRowHTML(fl,false)).join("")
+        +'<button class="r-btn" style="background:'+subBg+'">'+esc(bl.submitLabel)+'</button>';
+    case "timer": return '<div class="r-text" style="text-align:center;font-size:12px;color:#9aa3b2">'+esc(bl.label)+'</div><div class="r-timer">'+(bl.mode==="date"?"&#8987; "+esc(bl.endDate||"Datum setzen"):pad2(bl.minutes||15)+":00")+'</div>';
+    case "spacer": return '<div style="height:'+(bl.height||24)+'px"></div>';
+  }
+  return "";
+}
+function pad2(n){ return String(n).padStart(2,"0"); }
+
+function renderProps(f,step){
+  const bl=getSelBlock(step);
+  if(!bl) return '<div class="muted" style="font-size:12.5px">Wähle einen Block im Vorschau-Bereich, um ihn zu bearbeiten. Oder ziehe einen neuen Block aus der Palette.</div>';
+  let h='<div class="muted" style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">'+esc(BLOCK_DEFS[bl.type].label)+'</div>';
+  const tA=(id,label,val)=>'<div class="field"><label>'+label+'</label><textarea id="'+id+'">'+esc(val)+'</textarea></div>';
+  const inp=(id,label,val,type)=>'<div class="field"><label>'+label+'</label><input id="'+id+'" type="'+(type||"text")+'" value="'+esc(val)+'"></div>';
+  switch(bl.type){
+    case "headline":
+      h+=tA("p-text","Text",bl.text)+aiBtnRow()+inp("p-size","Schriftgröße (px)",bl.size,"number")+alignSel("p-align",bl.align); break;
+    case "text":
+      h+=tA("p-text","Text",bl.text)+aiBtnRow()+alignSel("p-align",bl.align); break;
+    case "image":
+      h+=inp("p-url","Bild-URL",bl.url)+inp("p-alt","Alt-Text",bl.alt); break;
+    case "video":
+      h+=inp("p-url","Embed-URL (YouTube/Vimeo)",bl.url)+'<div class="hint">z.B. https://www.youtube.com/embed/XXXX</div>'; break;
+    case "button":
+      h+=inp("p-label","Beschriftung",bl.label)
+        +'<div class="field"><label>Aktion</label><select id="p-action">'
+        +'<option value="next"'+(bl.action==="next"?" selected":"")+'>Nächster Schritt</option>'
+        +'<option value="end"'+(bl.action==="end"?" selected":"")+'>Funnel beenden</option>'
+        +'<option value="url"'+(bl.action==="url"?" selected":"")+'>Externe URL öffnen</option>'
+        +'<option value="ics"'+(bl.action==="ics"?" selected":"")+'>Kalender-Eintrag (.ics)</option></select></div>'
+        +inp("p-url","URL (bei Aktion = URL)",bl.url||""); break;
+    case "choice":
+      h+=tA("p-q","Frage",bl.question)
+        +'<label class="switch field"><input type="checkbox" id="p-multi" '+(bl.multi?"checked":"")+'> Mehrfachauswahl</label>'
+        +'<div class="muted" style="font-size:11px;margin:6px 0">Optionen (Label · Punkte · Sprung)</div><div id="opts">';
+      bl.options.forEach((o,i)=>{
+        h+='<div class="opt-row"><input data-opt="'+i+'" data-k="label" value="'+esc(o.label)+'">'
+          +'<input data-opt="'+i+'" data-k="points" type="number" value="'+esc(o.points)+'" style="width:60px" title="Punkte">'
+          +stepTargetSelectInline(f,step,o.next,i)
+          +'<button class="icon-btn" data-optdel="'+i+'">✕</button></div>';
+      });
+      h+='</div><button class="btn sm" id="add-opt">+ Option</button>'; break;
+    case "form":
+      h+=inp("p-label","Button-Text",bl.submitLabel)
+        +'<div class="muted" style="font-size:11px;margin:6px 0">Felder</div><div id="ffields">';
+      bl.fields.forEach((fl,i)=>{
+        h+='<div class="opt-row"><input data-ff="'+i+'" data-k="label" value="'+esc(fl.label)+'">'
+          +'<select data-ff="'+i+'" data-k="type" style="width:96px">'
+          +["text","email","tel","number","textarea","select","date","time","checkbox"].map(t=>'<option value="'+t+'"'+(fl.type===t?" selected":"")+'>'+t+'</option>').join("")+'</select>'
+          +'<label class="switch" style="font-size:11px"><input type="checkbox" data-ff="'+i+'" data-k="required" '+(fl.required?"checked":"")+'>Pflicht</label>'
+          +'<button class="icon-btn" data-ffdel="'+i+'">✕</button></div>';
+        if(fl.type==="select") h+='<input data-ff="'+i+'" data-k="options" value="'+esc(fl.options||"")+'" placeholder="Optionen, mit Komma getrennt" style="width:100%;margin:-2px 0 8px">';
+      });
+      h+='</div><button class="btn sm" id="add-field">+ Feld</button>'
+        +'<div class="hint">E-Mail = Lead-Identität · Telefon erhält automatisch Ländervorwahl · Checkbox = Einwilligung.</div>'; break;
+    case "list":
+      h+=tA("p-items","Einträge (eine Zeile pro Punkt)",(bl.items||[]).join("\n")); break;
+    case "feature":
+      h+=inp("p-ficon","Icon / Emoji",bl.icon||"")+inp("p-ftitle","Titel",bl.title||"")+tA("p-ftext","Beschreibung",bl.text||""); break;
+    case "hero":
+      h+=inp("p-hbadge","Badge (klein, oben)",bl.badge||"")+tA("p-hh","Hero-Überschrift",bl.headline||"")+tA("p-htext","Untertitel",bl.text||"")+inp("p-hcta","Button-Text",bl.cta||"")+inp("p-himg","Hintergrundbild-URL (optional)",bl.image||"")
+        +'<div class="hint">Farbe = Brandfarbe (in ⚙ Einstellungen).</div>'; break;
+    case "badges":
+      h+=tA("p-items","Trust-Badges (eine pro Zeile)",(bl.items||[]).join("\n")); break;
+    case "kicker":
+      h+=inp("p-ktext","Text (kleiner Akzent-Titel)",bl.text||""); break;
+    case "faq":
+      h+=tA("p-faq","FAQ (pro Zeile: Frage | Antwort)",(bl.items||[]).map(x=>x.q+" | "+x.a).join("\n")); break;
+    case "testslider":
+      h+=tA("p-tst","Testimonials (pro Zeile: Zitat | Name)",(bl.items||[]).map(x=>x.text+" | "+x.name).join("\n")); break;
+    case "result":
+      h+=tA("p-res","Ergebnis-Stufen (pro Zeile: minPunkte | Titel | Text)",(bl.tiers||[]).map(x=>(x.min||0)+" | "+x.title+" | "+x.text).join("\n"))
+        +'<div class="hint">Zeigt im Player automatisch die zum Quiz-Score passende Stufe.</div>'; break;
+    case "embed":
+      h+=inp("p-url","Embed-URL (iFrame, z.B. Calendly)",bl.url||"")
+        +tA("p-html","oder eigener HTML-Code",bl.html||"")
+        +inp("p-height","Höhe (px)",bl.height||320,"number"); break;
+    case "payment":
+      h+=inp("p-label","Button-Text",bl.label)+inp("p-amount","Betrag (Anzeige)",bl.amount||"")
+        +inp("p-url","Checkout-URL (Stripe/PayPal-Link)",bl.url||"")
+        +'<div class="hint">Öffnet deinen Zahlungslink in neuem Tab.</div>'; break;
+    case "timer":
+      h+=inp("p-label","Label",bl.label)
+        +'<div class="field"><label>Modus</label><select id="p-mode"><option value="duration"'+(bl.mode!=="date"?" selected":"")+'>Dauer (Minuten)</option><option value="date"'+(bl.mode==="date"?" selected":"")+'>Bis festes Datum</option></select></div>'
+        +(bl.mode==="date"
+          ? '<div class="field"><label>Enddatum/-zeit</label><input id="p-enddate" type="datetime-local" value="'+esc(bl.endDate||"")+'"></div>'
+          : inp("p-min","Minuten",bl.minutes,"number")); break;
+    case "spacer":
+      h+=inp("p-height","Höhe (px)",bl.height,"number"); break;
+  }
+  return h;
+}
+function alignSel(id,val){
+  return '<div class="field"><label>Ausrichtung</label><select id="'+id+'">'
+    +["left","center","right"].map(a=>'<option value="'+a+'"'+(val===a?" selected":"")+'>'+a+'</option>').join("")+'</select></div>';
+}
+function aiBtnRow(){ return '<div class="flex gap" style="margin:-4px 0 10px"><button class="btn sm" id="p-ai-rw">✨ Umschreiben</button><button class="btn sm" id="p-ai-tr">🌍 EN</button></div>'; }
+async function aiText(prompt){
+  const cfg=DB.aiConfig||{}; if(!cfg.apiKey) throw new Error("no-key");
+  if(cfg.provider==="anthropic"){
+    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":cfg.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:cfg.model||"claude-3-5-haiku-20241022",max_tokens:500,messages:[{role:"user",content:prompt}]})});
+    if(!res.ok) throw new Error("api "+res.status); const d=await res.json(); return ((d.content&&d.content[0]&&d.content[0].text)||"").trim();
+  } else {
+    const res=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",headers:{"content-type":"application/json","authorization":"Bearer "+cfg.apiKey},body:JSON.stringify({model:cfg.model||"gpt-4o-mini",temperature:0.7,messages:[{role:"user",content:prompt}]})});
+    if(!res.ok) throw new Error("api "+res.status); const d=await res.json(); return ((d.choices&&d.choices[0]&&d.choices[0].message.content)||"").trim();
+  }
+}
+async function blockAI(bl,instruction){
+  if(!(DB.aiConfig&&DB.aiConfig.apiKey)){ toast("Erst KI-Key im One-Shot-Fenster hinterlegen"); return; }
+  const cur=bl.text||""; if(!cur){ toast("Kein Text vorhanden"); return; }
+  toast("KI arbeitet…");
+  try{ const out=await aiText(instruction+cur); if(out){ bl.text=out; saveDB(); render(); toast("KI fertig ✓"); } }
+  catch(e){ toast("KI nicht erreichbar ("+e.message+")"); }
+}
+function stepTargetSelectInline(f,curStep,val,optIndex){
+  let o='<option value="next"'+(val==="next"?" selected":"")+'>weiter</option>';
+  o+='<option value="end"'+(val==="end"?" selected":"")+'>Ende</option>';
+  f.steps.forEach((s,i)=>{ if(s.id!==curStep.id) o+='<option value="'+s.id+'"'+(val===s.id?" selected":"")+'>→'+(i+1)+'</option>'; });
+  return '<select data-optnext="'+optIndex+'" style="width:78px">'+o+'</select>';
+}
+
+/* -------- Builder bindings -------- */
+function bindBuilder(){
+  const f=getFunnel(UI.funnelId); if(!f) return;
+  const step=getStep(f,UI.stepId);
+
+  // nav back handled by bindNav (data-nav)
+  const nameInput=document.getElementById("fn-name");
+  if(nameInput) nameInput.onchange=()=>{ f.name=nameInput.value.trim()||"Funnel"; saveDB(); };
+
+  const bs=document.getElementById("b-settings"); if(bs) bs.onclick=()=>openFunnelSettings(f.id);
+  const bex=document.getElementById("b-export"); if(bex) bex.onclick=()=>exportFunnel(f.id);
+  const bsa=document.getElementById("b-standalone"); if(bsa) bsa.onclick=()=>exportStandalone(f.id);
+  const bem=document.getElementById("b-embed"); if(bem) bem.onclick=()=>showEmbed(f.id);
+  const bp=document.getElementById("b-preview"); if(bp) bp.onclick=()=>startPlayer(f.id);
+  const pub=document.getElementById("b-publish"); if(pub) pub.onclick=()=>{
+    f.published=true; saveDB();
+    showModal('<h3>Funnel veröffentlicht ✅</h3><p class="muted">Dein Funnel ist jetzt auf "live" gesetzt. In diesem Prototyp läuft er lokal in deinem Browser.</p>'
+      +'<div class="field"><label>Teilbarer Vorschau-Link (lokal)</label><code class="dns">'+esc(location.href.split("#")[0])+'#funnel='+f.id+'</code></div>'
+      +'<div class="notice">Für eine echte öffentliche URL verbinde unter <b>Domains</b> eine eigene Domain – die Anleitung dort zeigt die nötigen DNS-Einträge.</div>'
+      +'<div class="actions"><button class="btn primary" data-close>Verstanden</button></div>');
+    render();
+  };
+
+  // steps
+  document.querySelectorAll("[data-step]").forEach(el=>{
+    el.onclick=(e)=>{ if(e.target.closest(".si-actions")) return; UI.stepId=el.getAttribute("data-step"); UI.blockId=null; render(); };
+  });
+  document.querySelectorAll("[data-stepup]").forEach(b=>b.onclick=(e)=>{e.stopPropagation();moveStep(f,b.getAttribute("data-stepup"),-1);});
+  document.querySelectorAll("[data-stepdown]").forEach(b=>b.onclick=(e)=>{e.stopPropagation();moveStep(f,b.getAttribute("data-stepdown"),1);});
+  document.querySelectorAll("[data-stepdel]").forEach(b=>b.onclick=(e)=>{e.stopPropagation();
+    if(f.steps.length<=1){ toast("Mindestens ein Schritt nötig"); return; }
+    const id=b.getAttribute("data-stepdel");
+    f.steps=f.steps.filter(s=>s.id!==id); if(UI.stepId===id) UI.stepId=f.steps[0].id; saveDB(); render();
+  });
+  const addStep=document.getElementById("add-step");
+  if(addStep) addStep.onclick=()=>{ const s=newStep("Schritt "+(f.steps.length+1),[]); f.steps.push(s); UI.stepId=s.id; UI.blockId=null; saveDB(); render(); };
+
+  // step drag reorder
+  enableStepDrag(f);
+
+  // step default next
+  const sdn=document.getElementById("step-default-next");
+  if(sdn&&step) sdn.onchange=()=>{ step.logic.defaultNext=sdn.value; saveDB(); render(); };
+
+  // block selection + delete + drag
+  document.querySelectorAll("[data-block]").forEach(el=>{
+    el.onclick=(e)=>{ if(e.target.closest("[data-blockdel]")) return; UI.blockId=parseInt(el.getAttribute("data-block")); render(); };
+  });
+  document.querySelectorAll("[data-blockdel]").forEach(b=>b.onclick=(e)=>{e.stopPropagation();
+    const i=parseInt(b.getAttribute("data-blockdel")); step.blocks.splice(i,1); UI.blockId=null; saveDB(); render();
+  });
+  enableBlockDrag(f,step);
+  enablePaletteDrag(f,step);
+
+  bindProps(f,step);
+}
+function moveStep(f,id,dir){
+  const i=f.steps.findIndex(s=>s.id===id); const j=i+dir;
+  if(j<0||j>=f.steps.length) return;
+  const t=f.steps[i]; f.steps[i]=f.steps[j]; f.steps[j]=t; saveDB(); render();
+}
+function enableStepDrag(f){
+  let dragId=null;
+  document.querySelectorAll("#steps-list [data-step]").forEach(el=>{
+    el.addEventListener("dragstart",()=>{ dragId=el.getAttribute("data-step"); });
+    el.addEventListener("dragover",e=>e.preventDefault());
+    el.addEventListener("drop",e=>{ e.preventDefault();
+      const targetId=el.getAttribute("data-step"); if(!dragId||dragId===targetId) return;
+      const from=f.steps.findIndex(s=>s.id===dragId); const to=f.steps.findIndex(s=>s.id===targetId);
+      const moved=f.steps.splice(from,1)[0]; f.steps.splice(to,0,moved); saveDB(); render();
+    });
+  });
+}
+function enableBlockDrag(f,step){
+  let dragIdx=null;
+  document.querySelectorAll("#canvas [data-block]").forEach(el=>{
+    el.addEventListener("dragstart",e=>{ dragIdx=parseInt(el.getAttribute("data-block")); e.dataTransfer.setData("text/plain","block"); });
+    el.addEventListener("dragover",e=>e.preventDefault());
+    el.addEventListener("drop",e=>{ e.preventDefault(); e.stopPropagation();
+      const palType=e.dataTransfer.getData("palette");
+      const to=parseInt(el.getAttribute("data-block"));
+      if(palType){ const nb=BLOCK_DEFS[palType].make(); step.blocks.splice(to,0,nb); UI.blockId=to; saveDB(); render(); return; }
+      if(dragIdx==null||dragIdx===to) return;
+      const moved=step.blocks.splice(dragIdx,1)[0]; step.blocks.splice(to,0,moved); UI.blockId=to; saveDB(); render();
+    });
+  });
+}
+function enablePaletteDrag(f,step){
+  document.querySelectorAll("[data-pal]").forEach(el=>{
+    el.addEventListener("dragstart",e=>{ e.dataTransfer.setData("palette",el.getAttribute("data-pal")); });
+    el.addEventListener("click",()=>{ const nb=BLOCK_DEFS[el.getAttribute("data-pal")].make(); step.blocks.push(nb); UI.blockId=step.blocks.length-1; saveDB(); render(); });
+  });
+  const dz=document.getElementById("drop-zone");
+  if(dz){
+    dz.addEventListener("dragover",e=>e.preventDefault());
+    dz.addEventListener("drop",e=>{
+      const palType=e.dataTransfer.getData("palette");
+      if(palType){ e.preventDefault(); const nb=BLOCK_DEFS[palType].make(); step.blocks.push(nb); UI.blockId=step.blocks.length-1; saveDB(); render(); }
+    });
+  }
+}
+function bindProps(f,step){
+  const bl=getSelBlock(step); if(!bl) return;
+  const v=(id)=>{ const e=document.getElementById(id); return e?e.value:null; };
+  const on=(id,fn)=>{ const e=document.getElementById(id); if(e){ e.oninput=fn; e.onchange=fn; } };
+  on("p-text",()=>{ bl.text=v("p-text"); liveCanvas(f,step); });
+  on("p-q",()=>{ bl.question=v("p-q"); liveCanvas(f,step); });
+  on("p-size",()=>{ bl.size=parseInt(v("p-size"))||20; liveCanvas(f,step); });
+  on("p-align",()=>{ bl.align=v("p-align"); liveCanvas(f,step); });
+  on("p-url",()=>{ bl.url=v("p-url"); liveCanvas(f,step); });
+  on("p-alt",()=>{ bl.alt=v("p-alt"); });
+  on("p-label",()=>{ if(bl.type==="form") bl.submitLabel=v("p-label"); else bl.label=v("p-label"); liveCanvas(f,step); });
+  on("p-action",()=>{ bl.action=v("p-action"); });
+  on("p-min",()=>{ bl.minutes=parseInt(v("p-min"))||1; liveCanvas(f,step); });
+  on("p-height",()=>{ bl.height=parseInt(v("p-height"))||10; liveCanvas(f,step); });
+  on("p-amount",()=>{ bl.amount=v("p-amount"); liveCanvas(f,step); });
+  on("p-html",()=>{ bl.html=v("p-html"); liveCanvas(f,step); });
+  on("p-items",()=>{ bl.items=v("p-items").split("\n").map(s=>s.trim()).filter(Boolean); liveCanvas(f,step); });
+  on("p-faq",()=>{ bl.items=v("p-faq").split("\n").filter(Boolean).map(l=>{const p=l.split("|");return {q:(p[0]||"").trim(),a:(p[1]||"").trim()};}); liveCanvas(f,step); });
+  on("p-tst",()=>{ bl.items=v("p-tst").split("\n").filter(Boolean).map(l=>{const p=l.split("|");return {text:(p[0]||"").trim(),name:(p[1]||"").trim()};}); liveCanvas(f,step); });
+  on("p-res",()=>{ bl.tiers=v("p-res").split("\n").filter(Boolean).map(l=>{const p=l.split("|");return {min:parseInt(p[0])||0,title:(p[1]||"").trim(),text:(p[2]||"").trim()};}); liveCanvas(f,step); });
+  on("p-mode",()=>{ bl.mode=v("p-mode"); saveDB(); render(); });
+  on("p-enddate",()=>{ bl.endDate=v("p-enddate"); liveCanvas(f,step); });
+  on("p-ficon",()=>{ bl.icon=v("p-ficon"); liveCanvas(f,step); });
+  on("p-ftitle",()=>{ bl.title=v("p-ftitle"); liveCanvas(f,step); });
+  on("p-ftext",()=>{ bl.text=v("p-ftext"); liveCanvas(f,step); });
+  on("p-hbadge",()=>{ bl.badge=v("p-hbadge"); liveCanvas(f,step); });
+  on("p-hh",()=>{ bl.headline=v("p-hh"); liveCanvas(f,step); });
+  on("p-htext",()=>{ bl.text=v("p-htext"); liveCanvas(f,step); });
+  on("p-hcta",()=>{ bl.cta=v("p-hcta"); liveCanvas(f,step); });
+  on("p-himg",()=>{ bl.image=v("p-himg"); liveCanvas(f,step); });
+  on("p-ktext",()=>{ bl.text=v("p-ktext"); liveCanvas(f,step); });
+  const multi=document.getElementById("p-multi"); if(multi) multi.onchange=()=>{ bl.multi=multi.checked; saveDB(); };
+  // choice options
+  document.querySelectorAll("[data-opt]").forEach(el=>{
+    el.oninput=()=>{ const i=+el.getAttribute("data-opt"),k=el.getAttribute("data-k");
+      bl.options[i][k]= k==="points"?(parseInt(el.value)||0):el.value; if(k==="label") liveCanvas(f,step); saveDB(); };
+  });
+  document.querySelectorAll("[data-optnext]").forEach(el=>{
+    el.onchange=()=>{ bl.options[+el.getAttribute("data-optnext")].next=el.value; saveDB(); };
+  });
+  document.querySelectorAll("[data-optdel]").forEach(b=>b.onclick=()=>{ bl.options.splice(+b.getAttribute("data-optdel"),1); saveDB(); render(); });
+  const addOpt=document.getElementById("add-opt"); if(addOpt) addOpt.onclick=()=>{ bl.options.push({id:uid("o"),label:"Neue Option",points:1,next:"next"}); saveDB(); render(); };
+  // form fields
+  document.querySelectorAll("[data-ff]").forEach(el=>{
+    const handler=()=>{ const i=+el.getAttribute("data-ff"),k=el.getAttribute("data-k");
+      let val = el.type==="checkbox"?el.checked:el.value;
+      bl.fields[i][k]=val;
+      if(k==="label" && (!bl.fields[i].key || /^feld\d*$/.test(bl.fields[i].key))) bl.fields[i].key=val.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_|_$/g,"")||("feld"+i);
+      saveDB();
+      if(k==="type"){ render(); return; }   // re-render so select-options appear
+      liveCanvas(f,step); };
+    el.oninput=handler; el.onchange=handler;
+  });
+  document.querySelectorAll("[data-ffdel]").forEach(b=>b.onclick=()=>{ bl.fields.splice(+b.getAttribute("data-ffdel"),1); saveDB(); render(); });
+  const addField=document.getElementById("add-field"); if(addField) addField.onclick=()=>{ bl.fields.push({key:"feld"+bl.fields.length,label:"Neues Feld",type:"text",required:false}); saveDB(); render(); };
+  const aiRw=document.getElementById("p-ai-rw"); if(aiRw) aiRw.onclick=()=>blockAI(bl,"Schreibe diesen deutschen Marketing-Text überzeugender, klarer und prägnanter um. Behalte die Sprache bei. Antworte NUR mit dem neuen Text:\n\n");
+  const aiTr=document.getElementById("p-ai-tr"); if(aiTr) aiTr.onclick=()=>blockAI(bl,"Translate this text to English. Answer ONLY with the translation:\n\n");
+}
+function liveCanvas(f,step){
+  saveDB();
+  const c=document.getElementById("canvas");
+  if(c) c.innerHTML=renderCanvas(f,step);
+  // re-bind canvas interactions
+  document.querySelectorAll("#canvas [data-block]").forEach(el=>{
+    el.onclick=(e)=>{ if(e.target.closest("[data-blockdel]")) return; UI.blockId=parseInt(el.getAttribute("data-block")); render(); };
+  });
+  document.querySelectorAll("#canvas [data-blockdel]").forEach(b=>b.onclick=(e)=>{e.stopPropagation();
+    step.blocks.splice(parseInt(b.getAttribute("data-blockdel")),1); UI.blockId=null; saveDB(); render();
+  });
+  enableBlockDrag(f,step);
+  const dz=document.getElementById("drop-zone");
+  if(dz){ dz.addEventListener("dragover",e=>e.preventDefault());
+    dz.addEventListener("drop",e=>{ const palType=e.dataTransfer.getData("palette");
+      if(palType){ e.preventDefault(); step.blocks.push(BLOCK_DEFS[palType].make()); UI.blockId=step.blocks.length-1; render(); } }); }
+}
+
+/* -------- Funnel settings modal (pixel, webhook, color) -------- */
+const GOOGLE_FONTS=["","Inter","Poppins","Montserrat","Roboto","Open Sans","Lato","Nunito","Space Grotesk","Manrope"];
+function openFunnelSettings(funnelId){
+  const f=getFunnel(funnelId); const s=f.settings;
+  const fontOpts=GOOGLE_FONTS.map(g=>'<option value="'+g+'"'+((s.fontFamily||"")===g?" selected":"")+'>'+(g||"Standard (System)")+'</option>').join("");
+  showModal('<h3>Funnel-Einstellungen</h3>'
+    +'<div class="split">'
+    +'<div class="field"><label>Primärfarbe</label><input id="s-color" type="color" value="'+esc(s.primaryColor||"#4f7cff")+'" style="height:42px;padding:4px"></div>'
+    +'<div class="field"><label>CTA-Farbe (Buttons)</label><input id="s-cta" type="color" value="'+esc(s.ctaColor||s.primaryColor||"#4f7cff")+'" style="height:42px;padding:4px"></div></div>'
+    +'<div class="field"><label>Schriftart (Google Font)</label><select id="s-font">'+fontOpts+'</select></div>'
+    +'<div class="inline" style="margin-bottom:12px;gap:18px"><label class="switch"><input type="checkbox" id="s-brand" '+(s.hideBranding?"checked":"")+'> White-Label (Branding ausblenden)</label>'
+    +'<label class="switch"><input type="checkbox" id="s-confetti" '+(s.confetti!==false?"checked":"")+'> Konfetti</label></div>'
+    +'<div class="field"><label>Meta (Facebook) Pixel ID</label><input id="s-pixel" value="'+esc(s.metaPixel||"")+'" placeholder="z.B. 123456789012345"><div class="hint">PageView + Lead-Event automatisch.</div></div>'
+    +'<div class="split"><div class="field"><label>Google Analytics 4</label><input id="s-ga4" value="'+esc(s.ga4||"")+'" placeholder="G-XXXXXXX"></div>'
+    +'<div class="field"><label>TikTok Pixel</label><input id="s-tiktok" value="'+esc(s.tiktok||"")+'" placeholder="CXXXXXXXX"></div></div>'
+    +'<div class="field"><label>Webhook-URL (Zapier/Make)</label><input id="s-webhook" value="'+esc(s.webhook||"")+'" placeholder="https://hooks.zapier.com/..."><div class="hint">JSON-POST bei jedem Lead.</div></div>'
+    +'<div class="flex gap" style="margin-bottom:6px"><button class="btn sm" id="s-theme-save">★ Als Theme speichern</button>'+(DB.savedTheme?'<button class="btn sm" id="s-theme-apply">Theme anwenden</button>':'')+'</div>'
+    +'<div class="actions"><button class="btn ghost" data-close>Abbrechen</button><button class="btn primary" id="s-save">Speichern</button></div>');
+  document.getElementById("s-save").onclick=()=>{
+    s.primaryColor=document.getElementById("s-color").value;
+    s.ctaColor=document.getElementById("s-cta").value;
+    s.fontFamily=document.getElementById("s-font").value;
+    s.hideBranding=document.getElementById("s-brand").checked;
+    s.confetti=document.getElementById("s-confetti").checked;
+    s.metaPixel=document.getElementById("s-pixel").value.trim();
+    s.ga4=document.getElementById("s-ga4").value.trim();
+    s.tiktok=document.getElementById("s-tiktok").value.trim();
+    s.webhook=document.getElementById("s-webhook").value.trim();
+    saveDB(); closeModal(); render(); toast("Einstellungen gespeichert");
+  };
+  document.getElementById("s-theme-save").onclick=()=>{
+    DB.savedTheme={ primaryColor:document.getElementById("s-color").value, ctaColor:document.getElementById("s-cta").value, fontFamily:document.getElementById("s-font").value };
+    saveDB(); toast("Theme gespeichert");
+  };
+  const ta=document.getElementById("s-theme-apply"); if(ta) ta.onclick=()=>{
+    if(!DB.savedTheme) return;
+    document.getElementById("s-color").value=DB.savedTheme.primaryColor||"#4f7cff";
+    document.getElementById("s-cta").value=DB.savedTheme.ctaColor||"#4f7cff";
+    document.getElementById("s-font").value=DB.savedTheme.fontFamily||"";
+    toast("Theme übernommen – jetzt Speichern");
+  };
+}
+
+/* ============================================================
+   PLAYER (runtime funnel)
+   ============================================================ */
+const PLAYER={ funnelId:null, stepIndex:0, score:0, answers:{}, points:{}, history:[], leadId:null, timers:[], visited:{}, fields:{}, utm:{}, device:"" };
+function captureParams(){ const o={}; try{ new URLSearchParams(location.search).forEach((v,k)=>o[k]=v); }catch(e){} return o; }
+function applyFunnelFont(f){ const fam=f.settings.fontFamily; if(!fam) return; const id="ff-font-"+fam.replace(/\W/g,"");
+  if(!document.getElementById(id)){ const l=document.createElement("link"); l.id=id; l.rel="stylesheet";
+    l.href="https://fonts.googleapis.com/css2?family="+encodeURIComponent(fam)+":wght@400;600;700;800&display=swap"; document.head.appendChild(l); } }
+function startPlayer(funnelId){
+  const f=getFunnel(funnelId); if(!f||f.steps.length===0){ toast("Funnel hat keine Schritte"); return; }
+  PLAYER.funnelId=funnelId; PLAYER.stepIndex=0; PLAYER.score=0; PLAYER.answers={}; PLAYER.points={}; PLAYER.history=[]; PLAYER.leadId=null; PLAYER.visited={};
+  PLAYER.fields={}; PLAYER.utm=captureParams(); PLAYER.device=detectDevice();
+  injectPixel(f); applyFunnelFont(f);
+  track(funnelId,"start",{device:PLAYER.device,hour:new Date().getHours(),
+    utm_source:PLAYER.utm.utm_source||"",utm_medium:PLAYER.utm.utm_medium||"",utm_campaign:PLAYER.utm.utm_campaign||""});
+  pixelTrack(f,"ViewContent","view_content","ViewContent",{content_name:f.name,content_category:"funnel"});
+  renderPlayer();
+}
+const PIXELS={ meta:new Set(), ga4:new Set(), tiktok:new Set() };
+function injectPixel(f){
+  const s=f.settings;
+  // Meta Pixel — init per ID
+  if(s.metaPixel && /^\d{6,20}$/.test(s.metaPixel) && !PIXELS.meta.has(s.metaPixel)){
+    PIXELS.meta.add(s.metaPixel);
+    if(!window.fbq){ (function(n,t){ const q=n.fbq=function(){ q.callMethod? q.callMethod.apply(q,arguments):q.queue.push(arguments); };
+      if(!n._fbq) n._fbq=q; q.push=q; q.loaded=true; q.version="2.0"; q.queue=[];
+      const e=t.createElement("script"); e.async=true; e.src="https://connect.facebook.net/en_US/fbevents.js";
+      const x=t.getElementsByTagName("script")[0]; x.parentNode.insertBefore(e,x); })(window,document); }
+    try{ window.fbq("init", s.metaPixel); window.fbq("track","PageView"); }catch(e){}
+  }
+  // Google Analytics 4 — actually inject gtag.js
+  if(s.ga4 && /^G-[A-Z0-9]+$/i.test(s.ga4) && !PIXELS.ga4.has(s.ga4)){
+    PIXELS.ga4.add(s.ga4);
+    const sc=document.createElement("script"); sc.async=true; sc.src="https://www.googletagmanager.com/gtag/js?id="+encodeURIComponent(s.ga4); document.head.appendChild(sc);
+    window.dataLayer=window.dataLayer||[]; if(!window.gtag) window.gtag=function(){ window.dataLayer.push(arguments); };
+    window.gtag("js", new Date()); window.gtag("config", s.ga4);
+  }
+  // TikTok Pixel — inject ttq
+  if(s.tiktok && /^[A-Z0-9]{10,30}$/i.test(s.tiktok) && !PIXELS.tiktok.has(s.tiktok)){
+    PIXELS.tiktok.add(s.tiktok);
+    (function(w,d,t){ w.TiktokAnalyticsObject=t; var ttq=w[t]=w[t]||[];
+      ttq.methods=["page","track","identify","instances","debug","on","off","once","ready","alias","group","enableCookie","disableCookie"];
+      ttq.setAndDefer=function(o,m){ o[m]=function(){ o.push([m].concat([].slice.call(arguments,0))); }; };
+      for(var i=0;i<ttq.methods.length;i++) ttq.setAndDefer(ttq,ttq.methods[i]);
+      ttq.load=function(id){ var u="https://analytics.tiktok.com/i18n/pixel/events.js"; ttq._i=ttq._i||{}; ttq._i[id]=[]; ttq._i[id]._u=u; ttq._t=ttq._t||{}; ttq._t[id]=+new Date(); ttq._o=ttq._o||{}; ttq._o[id]={};
+        var a=d.createElement("script"); a.async=true; a.src=u+"?sdkid="+id; var m=d.getElementsByTagName("script")[0]; m.parentNode.insertBefore(a,m); };
+      try{ ttq.load(s.tiktok); ttq.page(); }catch(e){} })(window,document,"ttq");
+  }
+}
+/* unified event firing across Meta / GA4 / TikTok */
+function pixelTrack(f, metaEvent, ga4Event, tiktokEvent, params){
+  params=params||{}; const s=f.settings;
+  if(s.metaPixel && window.fbq){ try{ window.fbq("track", metaEvent, params); }catch(e){} }
+  if(s.ga4 && window.gtag){ try{ window.gtag("event", ga4Event, params); }catch(e){} }
+  if(s.tiktok && window.ttq){ try{ window.ttq.track(tiktokEvent, params); }catch(e){} }
+}
+
+function renderPlayer(){
+  const f=getFunnel(PLAYER.funnelId); const step=f.steps[PLAYER.stepIndex];
+  (PLAYER.timers||[]).forEach(t=>clearInterval(t)); PLAYER.timers=[];
+  // track view once per step per session
+  if(!PLAYER.visited[step.id]){ PLAYER.visited[step.id]=true; track(f.id,"view",{step:step.id}); }
+  const c=f.settings.primaryColor||"#4f7cff";
+  const progress=((PLAYER.stepIndex+1)/f.steps.length*100);
+  const exp=f.settings.style==="express";
+  let inner="";
+  if(exp){ if(step.meta&&step.meta.qlabel) inner+='<div class="r-qbar" style="background:'+esc(c)+'">'+esc(step.meta.qlabel)+'</div>'; }
+  else if(!(step.meta&&step.meta.hideProgress)) inner+='<div class="r-progress"><div style="width:'+progress+'%"></div></div>';
+  step.blocks.forEach((bl,i)=>{ inner+='<div data-pi="'+i+'">'+renderPlayerBlock(bl,f)+'</div>'; });
+  if(!f.settings.hideBranding) inner+='<div style="text-align:center;margin-top:18px;font-size:11px;color:#b3bccb">⚡ erstellt mit FunnelForge</div>';
+  const fontStyle=f.settings.fontFamily?('font-family:\''+esc(f.settings.fontFamily)+'\',sans-serif'):'';
+
+  const root=document.getElementById("player-root");
+  root.innerHTML='<div class="player-overlay"><div class="player-bar">'
+    +'<div class="flex center gap">'
+    +(PLAYER.history.length?'<button class="btn sm" id="player-back">← Zurück</button>':'')
+    +'<span class="badge gray">Vorschau</span><strong>'+esc(f.name)+'</strong>'
+    +'<span class="muted" style="font-size:12px">Schritt '+(PLAYER.stepIndex+1)+'/'+f.steps.length+'</span></div>'
+    +'<button class="btn sm" id="player-close">✕ Schließen</button></div>'
+    +'<div class="player-stage"><div class="phone"><div class="phone-inner step-anim" id="player-inner" style="'+fontStyle+'">'+inner+'</div></div></div></div>';
+
+  document.getElementById("player-close").onclick=closePlayer;
+  const pb=document.getElementById("player-back"); if(pb) pb.onclick=()=>{ if(PLAYER.history.length){ PLAYER.stepIndex=PLAYER.history.pop(); renderPlayer(); } };
+  bindPlayerStep(f,step);
+}
+function renderPlayerBlock(bl,f){
+  const c=f.settings.primaryColor||"#4f7cff";
+  const cta=ctaBg(f);
+  const P=personalize;
+  if(bl.type==="hero") return heroHTML(bl,f,P);
+  if(["list","feature","badges","kicker","faq","testslider","embed","payment"].includes(bl.type)) return richBlockHTML(bl,f,P);
+  if(bl.type==="result"){ const tr=pickTier(bl,PLAYER.score);
+    return '<div class="r-headline" style="text-align:center">'+esc(P(tr.title))+'</div><div class="r-text" style="text-align:center">'+esc(P(tr.text))+'</div>'; }
+  switch(bl.type){
+    case "headline": return '<div class="r-headline" style="font-size:'+(bl.size||26)+'px;text-align:'+(bl.align||"left")+'">'+esc(P(bl.text))+'</div>';
+    case "text": return '<div class="r-text" style="text-align:'+(bl.align||"left")+'">'+esc(P(bl.text))+'</div>';
+    case "image": return bl.url?'<img class="r-img" src="'+esc(bl.url)+'" alt="'+esc(bl.alt||"")+'" onerror="this.style.display=\'none\'">':'';
+    case "video": var vu=safeUrl(bl.url); return vu?'<div style="position:relative;padding-bottom:56%;height:0;border-radius:14px;overflow:hidden;margin:12px 0"><iframe src="'+esc(vu)+'" style="position:absolute;inset:0;width:100%;height:100%;border:0" allowfullscreen></iframe></div>':'';
+    case "button": return '<button class="r-btn play-btn" style="background:'+(bl.variant==="cta"?cta:esc(c))+'">'+esc(P(bl.label))+'</button>';
+    case "choice":
+      var exC=f.settings.style==="express"?" exp":"";
+      return '<div class="r-q">'+esc(P(bl.question))+'</div>'
+        + bl.options.map(o=>'<div class="r-choice play-choice'+exC+'" data-oid="'+o.id+'" data-next="'+esc(o.next)+'" data-points="'+o.points+'">'+esc(P(o.label))+'</div>').join("")
+        + (bl.multi?'<button class="r-btn play-multi-next" style="background:'+esc(c)+';margin-top:10px">Weiter</button>':'');
+    case "form":
+      var subBg=ctaBg(f);
+      return '<form class="play-form">'+bl.fields.map(fl=>fieldRowHTML(fl,true)).join("")
+        +'<button type="submit" class="r-btn" style="background:'+subBg+'">'+esc(P(bl.submitLabel))+'</button></form>';
+    case "timer":
+      if(bl.mode==="date") return '<div class="r-text" style="text-align:center;font-size:12px;color:#9aa3b2">'+esc(P(bl.label))+'</div><div class="r-timer" data-deadline="'+esc(bl.endDate||"")+'">--:--:--</div>';
+      return '<div class="r-text" style="text-align:center;font-size:12px;color:#9aa3b2">'+esc(P(bl.label))+'</div><div class="r-timer" data-timer="'+(bl.minutes||15)+'">'+pad2(bl.minutes||15)+':00</div>';
+    case "spacer": return '<div style="height:'+(bl.height||24)+'px"></div>';
+  }
+  return "";
+}
+function bindPlayerStep(f,step){
+  // duration timer
+  const tEl=document.querySelector("#player-inner [data-timer]");
+  if(tEl){ let total=parseInt(tEl.getAttribute("data-timer"))*60;
+    PLAYER.timers.push(setInterval(()=>{ total--; if(total<0) return; tEl.textContent=pad2(Math.floor(total/60))+":"+pad2(total%60); },1000)); }
+  // fixed-date countdown
+  const dEl=document.querySelector("#player-inner [data-deadline]");
+  if(dEl){ const deadline=new Date(dEl.getAttribute("data-deadline")).getTime();
+    const tick=()=>{ const diff=deadline-Date.now(); if(isNaN(diff)){ dEl.textContent="—"; return; }
+      if(diff<=0){ dEl.textContent="00:00:00"; return; }
+      const d=Math.floor(diff/864e5), h=Math.floor(diff%864e5/36e5), m=Math.floor(diff%36e5/6e4), s=Math.floor(diff%6e4/1e3);
+      dEl.textContent=(d>0?d+"T ":"")+pad2(h)+":"+pad2(m)+":"+pad2(s); };
+    tick(); PLAYER.timers.push(setInterval(tick,1000)); }
+  // payment buttons (open external checkout)
+  document.querySelectorAll("#player-inner .play-pay").forEach(b=>b.onclick=()=>{
+    pixelTrack(f,"InitiateCheckout","begin_checkout","InitiateCheckout",{content_name:f.name});
+    track(f.id,"click",{step:step.id});
+    const u=safeUrl(b.getAttribute("data-payurl")); if(u) window.open(u,"_blank","noopener,noreferrer"); });
+  // buttons — resolved by block index (not label text)
+  document.querySelectorAll("#player-inner .play-btn").forEach(btn=>{
+    btn.onclick=()=>{ track(f.id,"click",{step:step.id});
+      const wrap=btn.closest("[data-pi]"); const bl=wrap?step.blocks[parseInt(wrap.getAttribute("data-pi"))]:null;
+      if(bl&&bl.type==="button"){
+        if(bl.action==="url"){ const u=safeUrl(bl.url); if(u) window.open(u,"_blank","noopener,noreferrer"); return; }
+        if(bl.action==="ics"){ downloadICS((f.meta&&f.meta.webinarTitle)||f.name,(f.meta&&f.meta.webinarDate)||"",60); return; }
+        if(bl.action==="end"){ finishFunnel(f); return; }
+      }
+      gotoNext(f,step,step.logic.defaultNext); };
+  });
+  // single-choice
+  document.querySelectorAll("#player-inner .play-choice").forEach(ch=>{
+    ch.onclick=()=>{
+      const choiceBlock=step.blocks.find(b=>b.type==="choice");
+      track(f.id,"click",{step:step.id});
+      if(choiceBlock && choiceBlock.multi){ ch.classList.toggle("picked"); return; }
+      ch.classList.add("picked");
+      PLAYER.points[step.id]=parseInt(ch.getAttribute("data-points"))||0; recomputeScore();
+      PLAYER.answers[step.id]=ch.textContent;
+      const next=ch.getAttribute("data-next");
+      setTimeout(()=>gotoNext(f,step,next),180);
+    };
+  });
+  // multi-choice next
+  const mn=document.querySelector("#player-inner .play-multi-next");
+  if(mn) mn.onclick=()=>{ const picked=[...document.querySelectorAll("#player-inner .play-choice.picked")];
+    PLAYER.points[step.id]=picked.reduce((a,p)=>a+(parseInt(p.getAttribute("data-points"))||0),0); recomputeScore();
+    PLAYER.answers[step.id]=picked.map(p=>p.textContent).join(", ");
+    gotoNext(f,step,step.logic.defaultNext); };
+  // form
+  const form=document.querySelector("#player-inner .play-form");
+  if(form){
+    form.querySelectorAll("input,select,textarea").forEach(el=>{ if(!el.name) return;
+      el.addEventListener("input",()=>{ PLAYER.fields[el.name]=el.value; const r=el.closest(".r-field")||el.closest(".r-consent"); if(r) r.classList.remove("err"); }); });
+    form.onsubmit=(e)=>{ e.preventDefault();
+      if(!validatePlayerForm(form)){ toast("Bitte fülle die markierten Felder korrekt aus"); return; }
+      const data={}; new FormData(form).forEach((val,k)=>data[k]=val);
+      const ccSel=form.querySelector(".cc-sel");
+      if(ccSel){ const formBlock=step.blocks.find(b=>b.type==="form");
+        const telField=formBlock&&formBlock.fields.find(x=>x.type==="tel");
+        if(telField&&data[telField.key]) data[telField.key]=ccSel.value+" "+data[telField.key]; }
+      Object.assign(PLAYER.fields, data);
+      saveLead(f,step,data); gotoNext(f,step,step.logic.defaultNext); };
+  }
+}
+function validatePlayerForm(form){
+  let ok=true, first=null;
+  form.querySelectorAll(".r-field,.r-consent").forEach(r=>r.classList.remove("err"));
+  form.querySelectorAll("[required]").forEach(el=>{
+    const row=el.closest(".r-field")||el.closest(".r-consent"); let bad=false;
+    if(el.type==="checkbox") bad=!el.checked;
+    else if(!String(el.value||"").trim()) bad=true;
+    else if(el.type==="email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value)) bad=true;
+    if(bad){ ok=false; if(row){ row.classList.add("err"); if(!first) first=row; } }
+  });
+  if(first&&first.scrollIntoView) first.scrollIntoView({block:"center",behavior:"smooth"});
+  return ok;
+}
+function gotoNext(f,step,target){
+  if(target==="end"){ finishFunnel(f); return; }
+  let nextIndex;
+  if(target==="next"){ nextIndex=PLAYER.stepIndex+1; }
+  else { nextIndex=f.steps.findIndex(s=>s.id===target); }
+  if(nextIndex<0 || nextIndex>=f.steps.length){ finishFunnel(f); return; }
+  PLAYER.history.push(PLAYER.stepIndex);
+  PLAYER.stepIndex=nextIndex; renderPlayer();
+}
+function finishFunnel(f){
+  track(f.id,"complete",{score:PLAYER.score,device:PLAYER.device});
+  pixelTrack(f,"CompleteRegistration","sign_up","CompleteRegistration",{content_name:f.name});
+  if(f.settings.confetti!==false) confetti();
+  const c=f.settings.primaryColor||"#4f7cff";
+  document.getElementById("player-inner").innerHTML=
+    '<div style="text-align:center;padding:34px 8px"><div style="font-size:50px">🎉</div>'
+    +'<div class="r-headline" style="text-align:center">Geschafft – vielen Dank!</div>'
+    +'<div class="r-text" style="text-align:center">Deine Angaben wurden übermittelt. Wir melden uns in Kürze bei dir.</div>'
+    +'<button class="r-btn" style="background:'+esc(c)+'" id="pl-restart">Nochmal ansehen</button></div>';
+  document.getElementById("pl-restart").onclick=()=>startPlayer(f.id);
+}
+function saveLead(f,step,data){
+  const lead={ id:uid("ld"), funnelId:f.id, funnelName:f.name, data:data, score:PLAYER.score,
+    answers:Object.assign({},PLAYER.answers), status:"new", utm:Object.assign({},PLAYER.utm), device:PLAYER.device, createdAt:now() };
+  DB.leads.push(lead); PLAYER.leadId=lead.id;
+  track(f.id,"lead",{step:step.id,leadId:lead.id,device:PLAYER.device,utm_source:PLAYER.utm.utm_source||""});
+  if(f.settings.confetti!==false) confetti();
+  pixelTrack(f,"Lead","generate_lead","SubmitForm",{content_name:f.name,value:0,currency:"EUR"});
+  // webhook (only https)
+  if(f.settings.webhook && /^https:\/\//i.test(f.settings.webhook)){
+    try{ fetch(f.settings.webhook,{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify(lead),mode:"no-cors"}); }catch(e){ console.warn("webhook failed",e); }
+  }
+}
+function ga4Track(f,event){ if(f.settings.ga4 && window.gtag){ try{ window.gtag("event",event); }catch(e){} } }
+function closePlayer(){ (PLAYER.timers||[]).forEach(t=>clearInterval(t)); PLAYER.timers=[];
+  if(location.hash) try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+  document.getElementById("player-root").innerHTML=""; render(); }
+
+/* ============================================================
+   LEADS / CRM
+   ============================================================ */
+let LEADVIEW="table";
+const LEAD_STATUSES=[["new","Neu"],["contacted","Kontaktiert"],["qualified","Qualifiziert"],["won","Gewonnen"],["lost","Verloren"]];
+function statusLabel(s){ const f=LEAD_STATUSES.find(x=>x[0]===(s||"new")); return f?f[1]:"Neu"; }
+function renderLeads(){
+  let html='<div class="topbar"><h1>Leads / CRM</h1><div class="flex gap center">'
+    +'<div class="tabs" style="margin:0"><button class="t '+(LEADVIEW==="table"?"active":"")+'" id="lv-table">Tabelle</button><button class="t '+(LEADVIEW==="kanban"?"active":"")+'" id="lv-kanban">Kanban</button></div>'
+    +'<select id="lead-filter" class="btn" style="padding:8px"><option value="">Alle Funnels</option>'
+    + DB.funnels.map(f=>'<option value="'+f.id+'">'+esc(f.name)+'</option>').join("")
+    +'</select><button class="btn" id="lead-export">⬇ CSV</button></div></div><div class="content">';
+  if(DB.leads.length===0){
+    html+='<div class="card"><p class="muted">Noch keine Leads. Sobald jemand ein Formular im Funnel ausfüllt, erscheinen die Leads hier.</p>'
+      +'<button class="btn" id="seed-demo">🎲 Demo-Daten erzeugen</button></div>';
+  }else{
+    html+='<div id="leads-view"></div>'
+      +'<div style="margin-top:16px"><button class="btn sm" id="seed-demo">🎲 Demo-Daten</button> '
+      +'<button class="btn sm danger" id="clear-leads">Alle Leads löschen</button></div>';
+  }
+  html+='</div>';
+  return html;
+}
+function leadsViewHTML(filterFunnel){ return LEADVIEW==="kanban"?kanbanHTML(filterFunnel):leadsTableHTML(filterFunnel); }
+function leadsTableHTML(filterFunnel){
+  let leads=DB.leads.slice().reverse();
+  if(filterFunnel) leads=leads.filter(l=>l.funnelId===filterFunnel);
+  if(leads.length===0) return '<div class="card muted">Keine Leads für diese Auswahl.</div>';
+  const keys=new Set(); leads.forEach(l=>Object.keys(l.data||{}).forEach(k=>keys.add(k)));
+  const keyArr=[...keys].slice(0,4);
+  let h='<table><thead><tr><th>Datum</th><th>Funnel</th>'+keyArr.map(k=>'<th>'+esc(k)+'</th>').join("")+'<th>Quelle</th><th>Status</th><th>Score</th><th></th></tr></thead><tbody>';
+  leads.forEach(l=>{
+    h+='<tr><td class="muted">'+fmtDate(l.createdAt)+'</td><td>'+esc(l.funnelName||"")+'</td>'
+      +keyArr.map(k=>'<td>'+esc(l.data[k]||"")+'</td>').join("")
+      +'<td class="muted">'+esc((l.utm&&l.utm.utm_source)||"—")+'</td>'
+      +'<td><select data-lstatus="'+l.id+'" style="background:var(--panel2);border:1px solid var(--border);color:var(--txt);border-radius:7px;padding:4px;font-size:11px">'+LEAD_STATUSES.map(s=>'<option value="'+s[0]+'"'+((l.status||"new")===s[0]?" selected":"")+'>'+s[1]+'</option>').join("")+'</select></td>'
+      +'<td>'+(l.score||0)+'</td><td><button class="icon-btn" data-ldel="'+l.id+'">🗑</button></td></tr>';
+  });
+  h+='</tbody></table>';
+  return h;
+}
+function kanbanHTML(filterFunnel){
+  let leads=DB.leads.slice().reverse();
+  if(filterFunnel) leads=leads.filter(l=>l.funnelId===filterFunnel);
+  let h='<div class="kanban">';
+  LEAD_STATUSES.forEach(st=>{
+    const col=leads.filter(l=>(l.status||"new")===st[0]);
+    h+='<div class="kan-col"><h4>'+st[1]+'<span>'+col.length+'</span></h4>';
+    col.forEach(l=>{ const name=l.data.name||l.data.vorname||Object.values(l.data)[0]||"Lead";
+      h+='<div class="kan-card"><div class="kn">'+esc(name)+'</div><div class="ke">'+esc(l.data.email||"")+'</div>'
+        +'<select data-lstatus="'+l.id+'">'+LEAD_STATUSES.map(s=>'<option value="'+s[0]+'"'+((l.status||"new")===s[0]?" selected":"")+'>'+s[1]+'</option>').join("")+'</select></div>'; });
+    h+='</div>';
+  });
+  return h+'</div>';
+}
+function bindLeads(){
+  const filter=document.getElementById("lead-filter");
+  const view=document.getElementById("leads-view");
+  const draw=()=>{ if(view){ view.innerHTML=leadsViewHTML(filter?filter.value:""); bindLeadRows(filter); } };
+  if(view) draw();
+  if(filter) filter.onchange=draw;
+  const t=document.getElementById("lv-table"); if(t) t.onclick=()=>{ LEADVIEW="table"; render(); };
+  const k=document.getElementById("lv-kanban"); if(k) k.onclick=()=>{ LEADVIEW="kanban"; render(); };
+  const exp=document.getElementById("lead-export"); if(exp) exp.onclick=()=>exportLeadsCSV(filter?filter.value:"");
+  const seed=document.getElementById("seed-demo"); if(seed) seed.onclick=seedDemoData;
+  const clr=document.getElementById("clear-leads"); if(clr) clr.onclick=()=>confirmModal("Alle Leads löschen?","Das entfernt alle gespeicherten Leads (Events bleiben).",()=>{ DB.leads=[]; saveDB(); render(); });
+}
+function bindLeadRows(filter){
+  const redraw=()=>{ const v=document.getElementById("leads-view"); if(v){ v.innerHTML=leadsViewHTML(filter?filter.value:""); bindLeadRows(filter); } };
+  document.querySelectorAll("[data-lstatus]").forEach(sel=>sel.onchange=()=>{
+    const l=DB.leads.find(x=>x.id===sel.getAttribute("data-lstatus")); if(l){ l.status=sel.value; saveDB(); if(LEADVIEW==="kanban") redraw(); } });
+  document.querySelectorAll("[data-ldel]").forEach(b=>b.onclick=()=>{ const id=b.getAttribute("data-ldel");
+    confirmModal("Lead löschen?","Dieser Lead wird dauerhaft entfernt.",()=>{ DB.leads=DB.leads.filter(x=>x.id!==id); saveDB(); redraw(); }); });
+}
+function exportLeadsCSV(filterFunnel){
+  let leads=DB.leads.slice();
+  if(filterFunnel) leads=leads.filter(l=>l.funnelId===filterFunnel);
+  if(leads.length===0){ toast("Keine Leads zum Export"); return; }
+  const keys=new Set(); leads.forEach(l=>Object.keys(l.data||{}).forEach(k=>keys.add(k)));
+  const keyArr=[...keys];
+  const head=["datum","funnel"].concat(keyArr).concat(["quelle","status","score"]);
+  const rows=[head.join(";")];
+  leads.forEach(l=>{
+    const r=[fmtDate(l.createdAt), csvCell(l.funnelName)].concat(keyArr.map(k=>csvCell(l.data[k]||"")))
+      .concat([csvCell((l.utm&&l.utm.utm_source)||""), csvCell(statusLabel(l.status)), l.score||0]);
+    rows.push(r.join(";"));
+  });
+  const blob=new Blob(["﻿"+rows.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="leads_"+Date.now()+".csv"; a.click();
+  toast(leads.length+" Leads exportiert");
+}
+function csvCell(s){ s=String(s==null?"":s); if(/[";\n]/.test(s)) s='"'+s.replace(/"/g,'""')+'"'; return s; }
+
+/* ============================================================
+   ANALYTICS
+   ============================================================ */
+function renderAnalytics(){
+  const funnelOpts='<option value="">Alle Funnels</option>'+DB.funnels.map(f=>'<option value="'+f.id+'"'+(UI.analyticsFunnel===f.id?" selected":"")+'>'+esc(f.name)+'</option>').join("");
+  let html='<div class="topbar"><h1>Analytics</h1><div class="flex gap center">'
+    +'<select id="an-funnel" class="btn" style="padding:8px">'+funnelOpts+'</select>'+rangeSelector()+'</div></div><div class="content">';
+  if(DB.events.length===0){
+    html+='<div class="notice">Noch keine Tracking-Daten. Starte einen Funnel in der Vorschau oder erzeuge Demo-Daten, um KPIs zu sehen.</div>'
+      +'<button class="btn primary" id="seed-demo">🎲 Demo-Daten erzeugen</button></div>';
+    return html;
+  }
+  const fid=UI.analyticsFunnel||"";
+  const s=funnelStats(fid||null,UI.range);
+  html+='<div class="grid cards">'
+    + kpi("Funnel-Starts",s.starts,"im Zeitraum")
+    + kpi("Unique Besucher",s.uniq,"eindeutige Personen")
+    + kpi("Leads",s.leads,"erfasst")
+    + kpi("Abschlüsse",s.completes,"Funnel beendet")
+    + kpi("Conversion-Rate",pct(s.cr),"Leads / Starts")
+    + kpi("Klickrate (CTR)",pct(s.ctr),"Klicks / Views")
+    +'</div>';
+
+  // Funnel drop-off (only when single funnel selected)
+  html+='<div class="section-title">Funnel-Drop-off pro Schritt</div>';
+  if(!fid){
+    html+='<div class="card muted">Wähle oben einen einzelnen Funnel, um die Schritt-für-Schritt-Drop-off-Analyse zu sehen.</div>';
+  }else{
+    html+='<div class="card">'+dropoffChart(fid,UI.range)+'</div>';
+  }
+
+  // Daily starts chart
+  html+='<div class="section-title">Aktivität im Zeitverlauf</div><div class="card">'+timeSeriesChart(fid||null,UI.range)+'</div>';
+
+  // Traffic sources & devices
+  html+='<div class="section-title">Traffic-Quellen, Geräte & Tageszeit</div>'
+    +'<div class="split"><div class="card"><div class="muted" style="font-size:12px;margin-bottom:8px">Geräte</div>'+deviceSplit(fid||null,UI.range)
+    +'<div class="muted" style="font-size:12px;margin:14px 0 8px">Top UTM-Quellen</div>'+utmSources(fid||null,UI.range)+'</div>'
+    +'<div class="card"><div class="muted" style="font-size:12px;margin-bottom:8px">Aktivität nach Tageszeit</div>'+hourActivity(fid||null,UI.range)+'</div></div>';
+
+  // Per-funnel table (overview)
+  if(!fid){
+    html+='<div class="section-title">Funnel-Vergleich</div><div class="card"><table><thead><tr><th>Funnel</th><th>Starts</th><th>Leads</th><th>CR</th><th>Abschlüsse</th></tr></thead><tbody>';
+    DB.funnels.forEach(f=>{ const fs=funnelStats(f.id,UI.range);
+      html+='<tr><td>'+esc(f.name)+'</td><td>'+fs.starts+'</td><td>'+fs.leads+'</td><td>'+pct(fs.cr)+'</td><td>'+fs.completes+'</td></tr>'; });
+    html+='</tbody></table></div>';
+  }
+  html+='<div style="margin-top:18px"><button class="btn sm" id="seed-demo">🎲 Demo-Daten erzeugen</button> <button class="btn sm danger" id="clear-events">Tracking-Daten löschen</button></div>';
+  html+='</div>';
+  return html;
+}
+function dropoffChart(fid,range){
+  const f=getFunnel(fid); if(!f) return "Funnel nicht gefunden.";
+  const ev=eventsFor(fid,range);
+  const stepViews=f.steps.map(st=>({ name:st.name, views:ev.filter(e=>e.type==="view"&&e.step===st.id).length }));
+  const max=Math.max(1,...stepViews.map(s=>s.views));
+  let h="";
+  stepViews.forEach((s,i)=>{
+    const prev = i>0?stepViews[i-1].views:s.views;
+    const drop = prev>0?(1-(s.views/prev)):0;
+    h+='<div class="bar-row"><div class="bl">'+(i+1)+'. '+esc(s.name)+'</div>'
+      +'<div class="bar-track"><div class="bar-fill" style="width:'+(s.views/max*100)+'%">'+s.views+'</div></div>'
+      +'<div class="bv">'+(i>0?("−"+pct(drop)+" Drop"):"Einstieg")+'</div></div>';
+  });
+  return h||'<span class="muted">Keine Views im Zeitraum.</span>';
+}
+function timeSeriesChart(fid,range){
+  const start = range==="all"? (DB.events.length?Math.min(...DB.events.map(e=>e.ts)):now()) : rangeStart(range);
+  const days=[]; let d=new Date(start); d.setHours(0,0,0,0);
+  const end=new Date(); end.setHours(0,0,0,0);
+  while(d.getTime()<=end.getTime() && days.length<60){ days.push(d.getTime()); d=new Date(d.getTime()+864e5); }
+  const ev=DB.events.filter(e=>(!fid||e.funnelId===fid));
+  const series=days.map(day=>{ const next=day+864e5;
+    return { day, starts:ev.filter(e=>e.type==="start"&&e.ts>=day&&e.ts<next).length,
+             leads:ev.filter(e=>e.type==="lead"&&e.ts>=day&&e.ts<next).length }; });
+  const max=Math.max(1,...series.map(s=>s.starts));
+  const w=Math.max(series.length*40,300), h=160, pad=24;
+  let bars="";
+  series.forEach((s,i)=>{ const bh=(s.starts/max)*(h-pad*2);
+    const x=pad+i*((w-pad*2)/Math.max(series.length,1));
+    bars+='<rect x="'+x+'" y="'+(h-pad-bh)+'" width="'+Math.max(8,(w-pad*2)/series.length-8)+'" height="'+bh+'" rx="3" fill="url(#g)"></rect>';
+    if(series.length<=14) bars+='<text x="'+(x+8)+'" y="'+(h-8)+'" font-size="9" fill="#9aa3b2">'+fmtDateShort(s.day)+'</text>';
+  });
+  return '<svg class="chart" viewBox="0 0 '+w+' '+h+'" width="100%" height="'+h+'">'
+    +'<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c5cff"/><stop offset="1" stop-color="#4f7cff"/></linearGradient></defs>'
+    +bars+'</svg><div class="muted" style="font-size:12px;margin-top:6px">Balken = Funnel-Starts pro Tag</div>';
+}
+function deviceSplit(fid,range){
+  const ev=eventsFor(fid,range).filter(e=>e.type==="start");
+  const m=ev.filter(e=>e.device==="mobile").length, d=ev.filter(e=>e.device==="desktop").length, tot=m+d;
+  if(tot===0) return '<span class="muted">Keine Daten.</span>';
+  const bar=(label,val)=>'<div class="bar-row"><div class="bl">'+label+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(val/tot*100)+'%">'+val+'</div></div><div class="bv">'+pct(val/tot)+'</div></div>';
+  return bar("📱 Mobil",m)+bar("💻 Desktop",d);
+}
+function utmSources(fid,range){
+  const ev=eventsFor(fid,range).filter(e=>e.type==="start");
+  const g={}; ev.forEach(e=>{ const s=e.utm_source||"(direkt)"; g[s]=(g[s]||0)+1; });
+  const rows=Object.keys(g).sort((a,b)=>g[b]-g[a]).slice(0,6);
+  if(rows.length===0) return '<span class="muted">Keine Daten.</span>';
+  const max=Math.max(...rows.map(r=>g[r]));
+  return rows.map(r=>'<div class="bar-row"><div class="bl">'+esc(r)+'</div><div class="bar-track"><div class="bar-fill" style="width:'+(g[r]/max*100)+'%">'+g[r]+'</div></div><div class="bv"></div></div>').join("");
+}
+function hourActivity(fid,range){
+  const ev=eventsFor(fid,range).filter(e=>e.type==="start");
+  const buckets=new Array(24).fill(0);
+  ev.forEach(e=>{ let hh=e.hour; if(hh==null) hh=new Date(e.ts).getHours(); buckets[hh]=(buckets[hh]||0)+1; });
+  const max=Math.max(1,...buckets);
+  let bars="";
+  for(let i=0;i<24;i++){ bars+='<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end"><div class="hb" style="height:'+(buckets[i]/max*100)+'%"></div>'+(i%3===0?'<div class="hl">'+i+'</div>':'<div class="hl">&nbsp;</div>')+'</div>'; }
+  return '<div class="hbar">'+bars+'</div><div class="muted" style="font-size:11px;margin-top:4px">Stunde (0–23) · Funnel-Starts</div>';
+}
+function bindAnalytics(){
+  document.querySelectorAll("[data-range]").forEach(b=>b.onclick=()=>{UI.range=b.getAttribute("data-range");render();});
+  const sel=document.getElementById("an-funnel"); if(sel) sel.onchange=()=>{ UI.analyticsFunnel=sel.value; render(); };
+  const seed=document.getElementById("seed-demo"); if(seed) seed.onclick=seedDemoData;
+  const clr=document.getElementById("clear-events"); if(clr) clr.onclick=()=>confirmModal("Tracking-Daten löschen?","Entfernt alle Events (Leads bleiben).",()=>{ DB.events=[]; saveDB(); render(); });
+}
+
+/* -------- Demo data seeding -------- */
+function seedDemoData(){
+  if(DB.funnels.length===0){ const f=TEMPLATES.quiz.build(); f.name="Demo Quiz-Funnel"; f.published=true; DB.funnels.push(f); }
+  const names=["Anna","Max","Lena","Tom","Sara","Jonas","Mia","Paul","Lea","Finn","Emma","Noah"];
+  DB.funnels.forEach(f=>{
+    for(let day=29;day>=0;day--){
+      const base=Date.now()-day*864e5;
+      const sessions=2+Math.floor(Math.random()*8);
+      for(let s=0;s<sessions;s++){
+        const ts=base+Math.floor(Math.random()*864e5);
+        const vis=uid("dvis");
+        const dev=Math.random()<0.72?"mobile":"desktop";
+        const src=["facebook","instagram","google","(direkt)","tiktok","linkedin"][Math.floor(Math.random()*6)];
+        DB.events.push({id:uid("ev"),funnelId:f.id,type:"start",ts,visitor:vis,device:dev,hour:new Date(ts).getHours(),utm_source:src});
+        let dropped=false;
+        f.steps.forEach((st,idx)=>{
+          if(dropped) return;
+          DB.events.push({id:uid("ev"),funnelId:f.id,type:"view",ts:ts+idx*1000,visitor:vis,step:st.id});
+          if(Math.random()<0.25 && idx>0){ dropped=true; return; }
+          DB.events.push({id:uid("ev"),funnelId:f.id,type:"click",ts:ts+idx*1000+200,visitor:vis,step:st.id});
+        });
+        if(!dropped && Math.random()<0.5){
+          const nm=names[Math.floor(Math.random()*names.length)];
+          const lead={id:uid("ld"),funnelId:f.id,funnelName:f.name,data:{name:nm,email:nm.toLowerCase()+Math.floor(Math.random()*99)+"@mail.de"},score:Math.floor(Math.random()*6),answers:{},createdAt:ts+5000};
+          DB.leads.push(lead);
+          DB.events.push({id:uid("ev"),funnelId:f.id,type:"lead",ts:ts+5000,visitor:vis,step:f.steps[f.steps.length-1].id,leadId:lead.id});
+          DB.events.push({id:uid("ev"),funnelId:f.id,type:"complete",ts:ts+6000,visitor:vis});
+        }
+      }
+    }
+  });
+  saveDB(); render(); toast("Demo-Daten erzeugt");
+}
+
+/* ============================================================
+   DOMAINS
+   ============================================================ */
+function renderDomains(){
+  let html='<div class="topbar"><h1>Domains</h1><button class="btn primary" id="add-domain">+ Domain verbinden</button></div><div class="content">';
+  html+='<div class="notice">In diesem lokalen Prototyp wird die komplette Domain-Verwaltung als Oberfläche abgebildet. '
+    +'Die tatsächliche Schaltung erfolgt, sobald du den Funnel auf einem Server/Hosting deployst und die unten gezeigten DNS-Einträge bei deinem Domain-Anbieter setzt.</div>';
+  if(DB.domains.length===0){
+    html+='<div class="card"><p class="muted">Noch keine Domain verbunden.</p><button class="btn primary" id="add-domain2">+ Domain verbinden</button></div>';
+  }else{
+    html+='<div class="grid cards">';
+    DB.domains.forEach(d=>{
+      const f=getFunnel(d.funnelId);
+      html+='<div class="card"><div class="flex between center"><strong>'+esc(d.domain)+'</strong>'
+        +(d.status==="connected"?'<span class="badge green">verbunden</span>':'<span class="badge warn">ausstehend</span>')+'</div>'
+        +'<div class="meta muted" style="font-size:12px;margin:6px 0">Funnel: '+esc(f?f.name:"—")+'</div>'
+        +'<div class="flex gap"><button class="btn sm" data-dns="'+d.id+'">DNS-Anleitung</button>'
+        +(d.status!=="connected"?'<button class="btn sm primary" data-verify="'+d.id+'">Verbindung prüfen</button>':'')
+        +'<button class="btn sm danger" data-domdel="'+d.id+'">Entfernen</button></div></div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  return html;
+}
+function bindDomains(){
+  const a1=document.getElementById("add-domain"), a2=document.getElementById("add-domain2");
+  if(a1) a1.onclick=openAddDomain; if(a2) a2.onclick=openAddDomain;
+  document.querySelectorAll("[data-dns]").forEach(b=>b.onclick=()=>showDNS(b.getAttribute("data-dns")));
+  document.querySelectorAll("[data-verify]").forEach(b=>b.onclick=()=>{
+    const d=DB.domains.find(x=>x.id===b.getAttribute("data-verify"));
+    b.textContent="Prüfe…"; b.disabled=true;
+    setTimeout(()=>{ d.status="connected"; saveDB(); render(); toast("Domain verbunden (simuliert)"); },1200);
+  });
+  document.querySelectorAll("[data-domdel]").forEach(b=>b.onclick=()=>{ DB.domains=DB.domains.filter(x=>x.id!==b.getAttribute("data-domdel")); saveDB(); render(); });
+}
+function openAddDomain(){
+  if(DB.funnels.length===0){ toast("Erstelle zuerst einen Funnel"); return; }
+  const opts=DB.funnels.map(f=>'<option value="'+f.id+'">'+esc(f.name)+'</option>').join("");
+  showModal('<h3>Domain verbinden</h3>'
+    +'<div class="field"><label>Domain</label><input id="dom-name" placeholder="funnel.deine-domain.de"></div>'
+    +'<div class="field"><label>Mit Funnel verknüpfen</label><select id="dom-funnel">'+opts+'</select></div>'
+    +'<div class="actions"><button class="btn ghost" data-close>Abbrechen</button><button class="btn primary" id="dom-save">Hinzufügen</button></div>');
+  document.getElementById("dom-save").onclick=()=>{
+    const name=document.getElementById("dom-name").value.trim().replace(/^https?:\/\//,"").replace(/\/.*$/,"");
+    if(!name){ toast("Bitte Domain eingeben"); return; }
+    DB.domains.push({id:uid("dom"),domain:name,funnelId:document.getElementById("dom-funnel").value,status:"pending",createdAt:now()});
+    saveDB(); closeModal(); render(); toast("Domain hinzugefügt – jetzt DNS einrichten");
+  };
+}
+function showDNS(domId){
+  const d=DB.domains.find(x=>x.id===domId); if(!d) return;
+  const isSub = d.domain.split(".").length>2;
+  showModal('<h3>Domain verbinden: '+esc(d.domain)+'</h3>'
+    +'<p class="muted" style="font-size:13px">1) In <b>Netlify → Site → Domain management → Add custom domain</b> die Domain hinzufügen. 2) Dann beim Domain-Anbieter (IONOS, GoDaddy, Cloudflare) diese DNS-Einträge setzen:</p>'
+    +(isSub
+      ? '<div class="field"><label>CNAME-Eintrag (Subdomain)</label><code class="dns">Typ: CNAME\nName: '+esc(d.domain.split(".")[0])+'\nWert: deine-site.netlify.app</code></div>'
+      : '<div class="field"><label>A-Eintrag (Root-Domain) → Netlify Load Balancer</label><code class="dns">Typ: A\nName: @\nWert: 75.2.60.5</code></div>'
+        +'<div class="field"><label>CNAME für www</label><code class="dns">Typ: CNAME\nName: www\nWert: deine-site.netlify.app</code></div>')
+    +'<div class="notice">SSL/HTTPS stellt Netlify automatisch (Let\'s Encrypt). Propagation bis zu 24h. „Verbindung prüfen" ist hier nur eine lokale Markierung – den echten Status zeigt Netlify.</div>'
+    +'<div class="actions"><button class="btn primary" data-close>Schließen</button></div>');
+}
+
+/* ============================================================
+   HELP
+   ============================================================ */
+function renderHelp(){
+  return '<div class="topbar"><h1>Hilfe & Setup</h1></div><div class="content">'
+    +'<div class="card"><h3 style="margin-top:0">So funktioniert FunnelForge</h3>'
+    +'<p class="muted">Ein vollständiger Perspective-Style Funnel-Builder, der lokal in deinem Browser läuft. Alle Daten (Funnels, Leads, Tracking) werden in deinem Browser gespeichert – nichts verlässt dein Gerät.</p>'
+    +'<ol style="line-height:1.9;color:var(--muted)">'
+    +'<li><b style="color:var(--txt)">Funnel erstellen</b> – unter „Funnels" eine Vorlage wählen (z.B. Quiz-Funnel).</li>'
+    +'<li><b style="color:var(--txt)">Bauen</b> – Blöcke per Drag-&-Drop anordnen, Quiz-Logik & Verzweigungen pro Antwort setzen.</li>'
+    +'<li><b style="color:var(--txt)">Tracking einrichten</b> – im Builder unter ⚙ Einstellungen Meta-Pixel-ID, GA4 und Webhook hinterlegen.</li>'
+    +'<li><b style="color:var(--txt)">Veröffentlichen</b> – Funnel live schalten und Vorschau-Link teilen.</li>'
+    +'<li><b style="color:var(--txt)">Domain verbinden</b> – unter „Domains" eigene Domain hinzufügen, DNS-Anleitung folgen.</li>'
+    +'<li><b style="color:var(--txt)">Auswerten</b> – unter „Analytics" Starts, Leads, Conversion-Rate und Drop-off pro Schritt sehen.</li></ol></div>'
+    +'<div class="split" style="margin-top:16px">'
+    +'<div class="card"><h4 style="margin-top:0">✅ Voll funktionsfähig</h4><ul class="muted" style="line-height:1.8">'
+    +'<li>Drag-&-Drop Builder mit 9 Blocktypen</li><li>Quiz-Scoring & Antwort-Verzweigung</li><li>Lead-Erfassung + CSV-Export</li>'
+    +'<li>Live KPI-Tracking & Drop-off-Analyse</li><li>Meta-Pixel-Injection (PageView/Lead)</li><li>Webhook-POST an Zapier/Make</li></ul></div>'
+    +'<div class="card"><h4 style="margin-top:0">🔧 Braucht später Hosting</h4><ul class="muted" style="line-height:1.8">'
+    +'<li>Echte öffentliche URL & SSL</li><li>DNS-Schaltung der Domain (UI ist fertig)</li>'
+    +'<li>Serverseitiges Pixel-Forwarding (Conversion API)</li><li>Mehrbenutzer-/Agentur-Accounts</li></ul>'
+    +'<p class="muted" style="font-size:12px">Diese Punkte sind als Oberfläche vorbereitet und aktivieren sich beim Deployment.</p></div></div>'
+    +'<div style="margin-top:16px"><button class="btn" id="reset-all">⚠ Alle Daten zurücksetzen</button></div>'
+    +'<div id="help-bind"></div></div>';
+}
+
+/* ============================================================
+   ONE-SHOT RECRUITING FUNNEL GENERATOR
+   (Express-Bewerbung / Perspective-Style)
+   ============================================================ */
+function deriveDomain(url){
+  return String(url||"").trim().replace(/^https?:\/\//i,"").replace(/^www\./i,"").replace(/\/.*$/,"").replace(/\?.*$/,"").trim();
+}
+function deriveCompany(domain){
+  const label=(domain.split(".")[0]||"").replace(/[-_]+/g," ").trim();
+  return label.split(" ").map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(" ")||"Unser Unternehmen";
+}
+function guessLogo(domain){ return domain? "https://logo.clearbit.com/"+domain : ""; }
+
+/* Built-in copy engine (works fully offline, German recruiting voice, du-Form) */
+function generateRecruitingCopy(o){
+  const job=o.job||"Mitarbeiter/in", company=o.company||"unser Unternehmen";
+  const loc=o.location?(" in "+o.location):"";
+  return {
+    intro_headline: "Werde Teil von "+company+" als "+job+" (m/w/d)",
+    intro_sub: "Du suchst mehr als nur einen Job? Bei "+company+" findest du ein Team, das dich wertschätzt, faire Bezahlung und echte Perspektiven"+loc+". Bewirb dich jetzt in unter 60 Sekunden – ganz ohne Anschreiben.",
+    cta_label: "Jetzt in 60 Sekunden bewerben",
+    q_experience: { question:"Wie viel Erfahrung bringst du als "+job+" mit?",
+      options:["Berufseinsteiger/in","1–3 Jahre Erfahrung","Mehr als 3 Jahre Erfahrung","Quereinsteiger/in"] },
+    q_start: { question:"Wann könntest du bei uns starten?",
+      options:["Ab sofort","In 1 Monat","In 2–3 Monaten","Ich bin zeitlich flexibel"] },
+    q_pensum: { question:"Welches Pensum suchst du?",
+      options:["Vollzeit","Teilzeit","Auf Stundenbasis / Minijob","Noch flexibel"] },
+    benefits_headline: "Das erwartet dich bei "+company,
+    benefits_intro: "Wir investieren in unser Team – und in dich:",
+    benefits: [
+      "Überdurchschnittliche, faire Vergütung",
+      "Unbefristete Festanstellung mit Sicherheit",
+      "Ein wertschätzendes Team & flache Hierarchien",
+      "Weiterbildungen und echte Entwicklungschancen",
+      "Moderne Ausstattung und ein angenehmes Arbeitsumfeld"
+    ],
+    benefits_cta: "Klingt gut? Jetzt bewerben",
+    form_headline: "Fast geschafft – deine Bewerbung",
+    form_intro: "Trag deine Kontaktdaten ein, wir melden uns persönlich bei dir.",
+    form_submit: "Bewerbung jetzt absenden",
+    thankyou_headline: "Vielen Dank für deine Bewerbung! 🎉",
+    thankyou_text: "Wir haben deine Bewerbung bei "+company+" erhalten und melden uns innerhalb von 48 Stunden persönlich bei dir. Wir freuen uns auf dich!"
+  };
+}
+function mergeCopy(ai, base){
+  if(!ai||typeof ai!=="object") return base;
+  const out=deepClone(base);
+  const keys=["intro_headline","intro_sub","cta_label","benefits_headline","benefits_intro","benefits_cta","form_headline","form_intro","form_submit","thankyou_headline","thankyou_text"];
+  keys.forEach(k=>{ if(typeof ai[k]==="string" && ai[k].trim()) out[k]=ai[k].trim(); });
+  if(Array.isArray(ai.benefits) && ai.benefits.length) out.benefits=ai.benefits.map(String).slice(0,6);
+  ["q_experience","q_start","q_pensum"].forEach(q=>{
+    if(ai[q]&&typeof ai[q]==="object"){
+      if(typeof ai[q].question==="string"&&ai[q].question.trim()) out[q].question=ai[q].question.trim();
+      if(Array.isArray(ai[q].options)&&ai[q].options.length>=2) out[q].options=ai[q].options.map(String).slice(0,4);
+    }
+  });
+  return out;
+}
+
+/* Optional real AI rewrite via user's API key */
+function buildAIPrompt(o){
+  return "Erstelle Recruiting-Funnel-Texte auf Deutsch (du-Form, motivierend, authentisch, ohne Floskeln) für folgende Stelle.\n"
+    +"Firma: "+(o.company||"")+"\nStellenbezeichnung: "+(o.job||"")+"\nStandort: "+(o.location||"unbekannt")+"\nWebsite: "+(o.website||"")+"\n\n"
+    +"Antworte AUSSCHLIESSLICH mit gültigem JSON in exakt dieser Struktur (keine Erklärungen, kein Markdown):\n"
+    +'{"intro_headline":"","intro_sub":"","cta_label":"","q_experience":{"question":"","options":["","","",""]},'
+    +'"q_start":{"question":"","options":["","","",""]},"q_pensum":{"question":"","options":["","","",""]},'
+    +'"benefits_headline":"","benefits_intro":"","benefits":["","","","",""],"benefits_cta":"",'
+    +'"form_headline":"","form_intro":"","form_submit":"","thankyou_headline":"","thankyou_text":""}';
+}
+async function aiRewrite(o){
+  const cfg=DB.aiConfig||{};
+  if(!cfg.apiKey) throw new Error("no-key");
+  const prompt=buildAIPrompt(o);
+  let text="";
+  if(cfg.provider==="anthropic"){
+    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+      headers:{"content-type":"application/json","x-api-key":cfg.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:cfg.model||"claude-3-5-haiku-20241022",max_tokens:1600,messages:[{role:"user",content:prompt}]})});
+    if(!res.ok) throw new Error("api "+res.status);
+    const data=await res.json(); text=(data.content&&data.content[0]&&data.content[0].text)||"";
+  }else{
+    const res=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
+      headers:{"content-type":"application/json","authorization":"Bearer "+cfg.apiKey},
+      body:JSON.stringify({model:cfg.model||"gpt-4o-mini",temperature:0.7,response_format:{type:"json_object"},
+        messages:[{role:"system",content:"Du bist Experte für deutsches Recruiting-Copywriting. Antworte nur mit gültigem JSON."},{role:"user",content:prompt}]})});
+    if(!res.ok) throw new Error("api "+res.status);
+    const data=await res.json(); text=(data.choices&&data.choices[0]&&data.choices[0].message.content)||"";
+  }
+  text=text.replace(/^```(json)?/i,"").replace(/```$/,"").trim();
+  return JSON.parse(text);
+}
+
+/* Build the funnel object from a copy schema */
+function buildRecruitingFunnel(o, copy){
+  const color=o.color||"#2563eb";
+  const f=newFunnel((o.job||"Stelle")+" – "+(o.company||"Funnel"));
+  f.settings.primaryColor=color;
+  f.meta={ type:"recruiting", website:o.website||"", job:o.job||"", location:o.location||"", company:o.company||"" };
+
+  const H=(t,size,align)=>{const b=BLOCK_DEFS.headline.make();b.text=t;if(size)b.size=size;if(align)b.align=align;return b;};
+  const T=(t,align)=>{const b=BLOCK_DEFS.text.make();b.text=t;if(align)b.align=align;return b;};
+  const IMG=(u)=>{const b=BLOCK_DEFS.image.make();b.url=u;b.alt=o.company||"Logo";return b;};
+  const BTN=(label,action)=>{const b=BLOCK_DEFS.button.make();b.label=label;b.action=action||"next";return b;};
+  const SP=(h)=>{const b=BLOCK_DEFS.spacer.make();b.height=h||16;return b;};
+  const CHOICE=(q,opts)=>{const b=BLOCK_DEFS.choice.make();b.question=q;
+    b.options=opts.map((label,i)=>({id:uid("o"),label,points:i+1,next:"next"}));return b;};
+
+  // 1) Intro / Hero
+  const intro=newStep("Start", []);
+  if(o.logo) intro.blocks.push(IMG(o.logo));
+  intro.blocks.push(H(copy.intro_headline,27,"center"));
+  intro.blocks.push(T(copy.intro_sub,"center"));
+  intro.blocks.push(SP(8));
+  intro.blocks.push(BTN(copy.cta_label,"next"));
+
+  // 2-4) Quiz qualification
+  const qExp=newStep("Erfahrung",[CHOICE(copy.q_experience.question, copy.q_experience.options)]);
+  const qStart=newStep("Startzeitpunkt",[CHOICE(copy.q_start.question, copy.q_start.options)]);
+  const qPensum=newStep("Pensum",[CHOICE(copy.q_pensum.question, copy.q_pensum.options)]);
+
+  // 5) Benefits
+  const ben=newStep("Benefits",[]);
+  ben.blocks.push(H(copy.benefits_headline,24,"center"));
+  ben.blocks.push(T(copy.benefits_intro,"center"));
+  copy.benefits.forEach(b=>ben.blocks.push(T("✓  "+b,"left")));
+  ben.blocks.push(SP(8));
+  ben.blocks.push(BTN(copy.benefits_cta,"next"));
+
+  // 6) Application form
+  const form=newStep("Bewerbung",[]);
+  form.blocks.push(H(copy.form_headline,24,"center"));
+  form.blocks.push(T(copy.form_intro,"center"));
+  const fb=BLOCK_DEFS.form.make();
+  fb.submitLabel=copy.form_submit;
+  fb.fields=[
+    {key:"vorname",label:"Vorname",type:"text",required:true},
+    {key:"nachname",label:"Nachname",type:"text",required:true},
+    {key:"email",label:"E-Mail",type:"email",required:true},
+    {key:"telefon",label:"Telefon",type:"tel",required:true}
+  ];
+  form.blocks.push(fb);
+
+  // 7) Thank you
+  const ty=newStep("Danke",[H(copy.thankyou_headline,25,"center"),T(copy.thankyou_text,"center")]);
+  ty.logic.defaultNext="end";
+
+  f.steps=[intro,qExp,qStart,qPensum,ben,form,ty];
+  return f;
+}
+
+/* ---------- Branded image/banner generators (self-contained SVG) ---------- */
+function _xmlEsc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function _svgUri(svg){ return "data:image/svg+xml,"+encodeURIComponent(svg).replace(/'/g,"%27"); }
+function shade(hex,pct){
+  hex=String(hex||"#4f7cff").replace("#",""); if(hex.length===3) hex=hex.split("").map(c=>c+c).join("");
+  let r=parseInt(hex.substr(0,2),16)||0,g=parseInt(hex.substr(2,2),16)||0,b=parseInt(hex.substr(4,2),16)||0;
+  const cl=v=>Math.max(0,Math.min(255,Math.round(v)));
+  r=cl(r*(1+pct)); g=cl(g*(1+pct)); b=cl(b*(1+pct));
+  return "#"+[r,g,b].map(v=>v.toString(16).padStart(2,"0")).join("");
+}
+function heroBanner(color){
+  const l=shade(color,0.22), d=shade(color,-0.38);
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 360">'
+    +'<defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="'+l+'"/><stop offset="1" stop-color="'+d+'"/></linearGradient></defs>'
+    +'<rect width="800" height="360" fill="url(#hg)"/>'
+    +'<circle cx="650" cy="70" r="170" fill="#ffffff" opacity="0.09"/>'
+    +'<circle cx="110" cy="330" r="190" fill="#ffffff" opacity="0.06"/>'
+    +'<circle cx="710" cy="300" r="95" fill="#ffffff" opacity="0.08"/>'
+    +'<path d="M0 300 Q200 250 400 300 T800 300 V360 H0 Z" fill="#000000" opacity="0.12"/>'
+    +'</svg>';
+  return _svgUri(svg);
+}
+function sectionBanner(color,label){
+  const l=shade(color,0.10), d=shade(color,-0.30);
+  const t=_xmlEsc(String(label||"").toUpperCase());
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 140">'
+    +'<defs><linearGradient id="sg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="'+d+'"/><stop offset="1" stop-color="'+l+'"/></linearGradient></defs>'
+    +'<rect width="800" height="140" fill="url(#sg)"/>'
+    +'<circle cx="740" cy="20" r="90" fill="#ffffff" opacity="0.08"/>'
+    +'<circle cx="60" cy="130" r="80" fill="#ffffff" opacity="0.07"/>'
+    +'<text x="400" y="82" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="30" font-weight="700" letter-spacing="4" fill="#ffffff">'+t+'</text>'
+    +'</svg>';
+  return _svgUri(svg);
+}
+
+/* ---------- EXACT REPLICA: Express-Bewerbung template ---------- */
+function generateExpressCopy(o){
+  const job=o.job||"Fachkraft", company=o.company||"unser Unternehmen";
+  const loc=o.location?(" in "+o.location):"";
+  const COMPANY=company.toUpperCase();
+  return {
+    hero_h1:"Mehr als nur ein neuer Job.",
+    hero_h2:"Starte als "+job+" bei "+company+".",
+    hero_sub:"Werde Teil eines Teams, das dich wertschätzt"+loc+" – mit fairen Konditionen, echtem Zusammenhalt und Perspektiven, die dich wirklich weiterbringen.",
+    hero_cta:"Unverbindlich herausfinden, ob diese Stelle zu Dir passt!",
+    problem_title:"Ein Schritt, den viele aufschieben...",
+    problem_intro:"Viele Fachkräfte lieben ihren Beruf – aber nicht mehr das Umfeld, in dem sie arbeiten.",
+    problem_lines:[
+      "Die Jahre vergehen – und jeder Tag fühlt sich ähnlich an.",
+      "Der Wunsch nach Veränderung wird immer wieder auf später verschoben.",
+      "Zwischen Verantwortung, Alltag und Routine bleibt wenig Raum für Neues.",
+      "Und manchmal fragst Du Dich, ob jetzt der richtige Zeitpunkt wäre, den Schritt zu wagen."
+    ],
+    problem_q:"Kleine Veränderung? Oder ein Kapitel, an das Du Dich lange erinnern wirst?",
+    vision_title:"Stell Dir stattdessen vor:",
+    vision_head:"EIN NEUER WEG BEI "+COMPANY+"!",
+    vision_lines:[
+      "Du arbeitest in einem Team, in dem Zusammenarbeit wirklich gelebt wird.",
+      "Du wirst vom ersten Tag an unterstützt – kein Sprung ins kalte Wasser.",
+      "Du bekommst faire Konditionen und echte Entwicklungschancen.",
+      "Und Du spürst wieder, warum Du Deinen Beruf liebst."
+    ],
+    vision_close:"Nicht einfach ein Stellenwechsel. Sondern eine Entscheidung, die sich richtig anfühlt!",
+    cta_mid:"Jetzt in 60 Sekunden bewerben!",
+    testimonial1:{ name:"Sara M.", role:job+", "+company,
+      text:"Für mich war entscheidend, dass ich mich vom ersten Tag an willkommen gefühlt habe. Hier zählt der Mensch – nicht nur die Leistung." },
+    benefits_kicker:"DEINE VORTEILE",
+    benefits_title:"Mehr als nur ein Job",
+    benefits_intro:"Darum entscheiden sich Fachkräfte für "+company+":",
+    benefits:[
+      {icon:"🤝", title:"Ein Team, das zusammenhält", text:"Zusammenarbeit wird hier gelebt – nicht nur versprochen."},
+      {icon:"💶", title:"Faire & attraktive Vergütung", text:"Leistung, die sich auch auf dem Konto bemerkbar macht."},
+      {icon:"📈", title:"Echte Entwicklungschancen", text:"Weiterbildung und Perspektiven, die Dich wirklich weiterbringen."},
+      {icon:"🕒", title:"Planbare Arbeitszeiten", text:"Strukturen, die zu Deinem Leben passen."},
+      {icon:"❤️", title:"Wertschätzung im Alltag", text:"Du wirst gehört, gesehen und ernst genommen."},
+      {icon:"🎯", title:"Moderne Ausstattung", text:"Arbeite mit Mitteln, die Deinen Job leichter machen."},
+      {icon:"🚀", title:"Schneller, fairer Start", text:"Unkomplizierte Einarbeitung statt Bürokratie."},
+      {icon:"🌟", title:"Sinn in Deiner Arbeit", text:"Deine Arbeit macht für andere einen echten Unterschied."}
+    ],
+    testimonial2:{ name:"Anneliese O.", role:"langjährige Mitarbeiterin, "+company,
+      text:"Was diese Stelle für mich besonders macht? Das Menschliche. Wir unterstützen uns gegenseitig und werden wirklich gehört." },
+    authority_kicker:"ARBEITGEBER-BEWEISFÜHRUNG",
+    authority_title:"Darum bleiben Mitarbeitende oft viele Jahre",
+    authority_intro:"Ein Arbeitgeber kann vieles versprechen. Entscheidend ist, was die Menschen sagen, die täglich dort arbeiten.",
+    authority_lines:[
+      "Neue Mitarbeitende werden beim Ankommen aktiv unterstützt und begleitet.",
+      "Es wird im Team gearbeitet – gemeinsam statt allein.",
+      "Klare Strukturen und verlässliche Abläufe geben Dir Sicherheit.",
+      "Viele schätzen die Kombination aus Qualität, gutem Klima und persönlicher Nähe."
+    ],
+    authority_close:"Ein Ort, an dem man nicht einfach arbeitet. Sondern ankommt.",
+    final_kicker:"EINE EHRLICHE FRAGE",
+    final_text:"Du kannst natürlich noch Jahre darauf warten, dass sich etwas verändert. Oder Du nutzt jetzt die Chance, beruflich und persönlich etwas wirklich Besonderes zu erleben.",
+    compare_wait_kicker:"ABWARTEN & HOFFEN",
+    compare_wait_text:"Du bleibst in den gewohnten Strukturen und hoffst darauf, dass sich von allein etwas verbessert – oft vergebens.",
+    compare_act_kicker:"DIE CHANCE ERGREIFEN",
+    compare_act_text:"Du nimmst Deinen nächsten Schritt selbst in die Hand und startest etwas, das sich wirklich lohnt.",
+    final_cta:"Jetzt in 60 Sekunden bewerben!",
+    q1:{ label:"Frage 1 von 4", question:"Hast Du eine abgeschlossene Qualifikation als "+job+"?",
+      options:["👉  Ja, habe ich","👉  Derzeit in Ausbildung","👉  Nein"] },
+    q2:{ label:"Frage 2 von 4", question:"Kannst Du Dir vorstellen, langfristig bei "+company+" zu arbeiten?",
+      options:["👉  Ja!","👉  Nein"] },
+    q3:{ label:"Frage 3 von 4", question:"Wie gut sind Deine Deutschkenntnisse?",
+      options:["👉  Muttersprachler","👉  Sehr gute Kenntnisse","👉  Gute Kenntnisse","👉  Begrenzte Kenntnisse"] },
+    q4:{ label:"Letzte Frage", question:"Wie viel Berufserfahrung bringst Du mit?",
+      options:["👉  Mehr als 3 Jahre","👉  1–3 Jahre","👉  Erste Erfahrung","👉  Quereinsteiger/in"] },
+    form_h1:"Super, Du bist fast am Ziel!",
+    form_sub:"Damit Deine Bewerbung erfolgreich übermittelt wird, fülle bitte das folgende Formular aus. Deine Daten werden sicher und vertraulich behandelt.",
+    form_q:"Wie können wir Dich am besten kontaktieren?",
+    form_submit:"Bewerbung jetzt absenden!",
+    form_note:"Deine Daten verwenden wir ausschließlich für den Bewerbungsprozess und die persönliche Kontaktaufnahme.",
+    ty_h1:"Vielen Dank für Deine Bewerbung! 🎉",
+    ty_text:"Wir haben Deine Bewerbung bei "+company+" erhalten und melden uns innerhalb von 48 Stunden persönlich bei Dir. Wir freuen uns auf Dich!"
+  };
+}
+function buildExpressAIPrompt(o){
+  return "Schreibe Recruiting-Funnel-Texte auf Deutsch (du-Form, emotional, ehrlich, ohne Floskeln) im Stil einer hochkonvertierenden Express-Bewerbungs-Landingpage.\n"
+    +"Firma: "+(o.company||"")+"\nStelle: "+(o.job||"")+"\nStandort: "+(o.location||"unbekannt")+"\nWebsite: "+(o.website||"")+"\n\n"
+    +"Antworte AUSSCHLIESSLICH mit gültigem JSON in exakt dieser Struktur (keine Erklärungen, kein Markdown):\n"
+    +'{"hero_h1":"","hero_h2":"","hero_sub":"","vision_head":"","vision_lines":["","","",""],'
+    +'"benefits_intro":"","benefits":[{"icon":"","title":"","text":""}],"testimonial1":{"name":"","role":"","text":""},'
+    +'"q1":{"question":"","options":["","",""]},"q2":{"question":"","options":["",""]},"q4":{"question":"","options":["","","",""]},'
+    +'"ty_text":""}\nGib bei "benefits" genau 8 Einträge zurück.';
+}
+function mergeExpressCopy(ai, base){
+  if(!ai||typeof ai!=="object") return base;
+  const out=deepClone(base);
+  ["hero_h1","hero_h2","hero_sub","vision_head","vision_close","benefits_intro","ty_text"].forEach(k=>{
+    if(typeof ai[k]==="string"&&ai[k].trim()) out[k]=ai[k].trim(); });
+  if(Array.isArray(ai.vision_lines)&&ai.vision_lines.length) out.vision_lines=ai.vision_lines.map(String).slice(0,5);
+  if(Array.isArray(ai.benefits)&&ai.benefits.length){
+    out.benefits=ai.benefits.slice(0,8).map((b,i)=>({
+      icon:(b&&b.icon)||out.benefits[i%out.benefits.length].icon,
+      title:(b&&b.title)?String(b.title):out.benefits[i%out.benefits.length].title,
+      text:(b&&b.text)?String(b.text):out.benefits[i%out.benefits.length].text }));
+  }
+  if(ai.testimonial1&&typeof ai.testimonial1==="object"){
+    if(ai.testimonial1.text) out.testimonial1.text=String(ai.testimonial1.text);
+    if(ai.testimonial1.name) out.testimonial1.name=String(ai.testimonial1.name);
+    if(ai.testimonial1.role) out.testimonial1.role=String(ai.testimonial1.role);
+  }
+  ["q1","q2","q3","q4"].forEach(q=>{ if(ai[q]&&typeof ai[q]==="object"){
+    if(ai[q].question) out[q].question=String(ai[q].question);
+    if(Array.isArray(ai[q].options)&&ai[q].options.length>=2)
+      out[q].options=ai[q].options.map(s=>/^👉/.test(s)?String(s):("👉  "+s)).slice(0,4); } });
+  return out;
+}
+async function aiRewriteExpress(o){
+  const cfg=DB.aiConfig||{};
+  if(!cfg.apiKey) throw new Error("no-key");
+  const prompt=buildExpressAIPrompt(o); let text="";
+  if(cfg.provider==="anthropic"){
+    const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",
+      headers:{"content-type":"application/json","x-api-key":cfg.apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+      body:JSON.stringify({model:cfg.model||"claude-3-5-haiku-20241022",max_tokens:2200,messages:[{role:"user",content:prompt}]})});
+    if(!res.ok) throw new Error("api "+res.status);
+    const data=await res.json(); text=(data.content&&data.content[0]&&data.content[0].text)||"";
+  }else{
+    const res=await fetch("https://api.openai.com/v1/chat/completions",{method:"POST",
+      headers:{"content-type":"application/json","authorization":"Bearer "+cfg.apiKey},
+      body:JSON.stringify({model:cfg.model||"gpt-4o-mini",temperature:0.7,response_format:{type:"json_object"},
+        messages:[{role:"system",content:"Du bist Experte für deutsches Recruiting-Copywriting. Antworte nur mit gültigem JSON."},{role:"user",content:prompt}]})});
+    if(!res.ok) throw new Error("api "+res.status);
+    const data=await res.json(); text=(data.choices&&data.choices[0]&&data.choices[0].message.content)||"";
+  }
+  text=text.replace(/^```(json)?/i,"").replace(/```$/,"").trim();
+  return JSON.parse(text);
+}
+function buildExpressFunnel(o, copy){
+  const color=o.color||"#d0292f";
+  const f=newFunnel((o.job||"Stelle")+" – "+(o.company||"Funnel"));
+  f.settings.primaryColor=color;
+  f.settings.style="express";
+  f.meta={ type:"recruiting", template:"express", website:o.website||"", job:o.job||"", location:o.location||"", company:o.company||"" };
+
+  const H=(t,size,align)=>{const b=BLOCK_DEFS.headline.make();b.text=t;if(size)b.size=size;b.align=align||"left";return b;};
+  const T=(t,align)=>{const b=BLOCK_DEFS.text.make();b.text=t;b.align=align||"left";return b;};
+  const IMG=(u)=>{const b=BLOCK_DEFS.image.make();b.url=u;b.alt=o.company||"Logo";return b;};
+  const SP=(h)=>{const b=BLOCK_DEFS.spacer.make();b.height=h||16;return b;};
+  const CTA=(label)=>{const b=BLOCK_DEFS.button.make();b.label=label;b.action="next";b.variant="cta";return b;};
+  const CHOICE=(q,opts)=>{const b=BLOCK_DEFS.choice.make();b.question=q;
+    b.options=opts.map((label,i)=>({id:uid("o"),label,points:i+1,next:"next"}));return b;};
+  const FEAT=(icon,title,text)=>{const b=BLOCK_DEFS.feature.make();b.icon=icon;b.title=title;b.text=text;return b;};
+  const TST=(items)=>{const b=BLOCK_DEFS.testslider.make();b.items=items;return b;};
+
+  // ---- 1) Long-form sales landing page (one scrollable step) ----
+  const L=newStep("Landingpage", [], {hideProgress:true});
+  if(o.logo) L.blocks.push(IMG(o.logo));
+  L.blocks.push(IMG(heroBanner(color)));
+  L.blocks.push(H(copy.hero_h1,28,"center"));
+  L.blocks.push(H(copy.hero_h2,21,"center"));
+  L.blocks.push(T(copy.hero_sub,"center"));
+  L.blocks.push(SP(6)); L.blocks.push(CTA(copy.hero_cta)); L.blocks.push(SP(14));
+  L.blocks.push(H(copy.problem_title,22,"center"));
+  L.blocks.push(T(copy.problem_intro,"center"));
+  copy.problem_lines.forEach(x=>L.blocks.push(T(x,"left")));
+  L.blocks.push(T(copy.problem_q,"center"));
+  L.blocks.push(CTA(copy.hero_cta)); L.blocks.push(SP(14));
+  L.blocks.push(H(copy.vision_title,18,"center"));
+  L.blocks.push(H(copy.vision_head,22,"center"));
+  copy.vision_lines.forEach(x=>L.blocks.push(T("✓  "+x,"left")));
+  L.blocks.push(T(copy.vision_close,"center"));
+  L.blocks.push(CTA(copy.cta_mid)); L.blocks.push(SP(14));
+  // testimonial 1 (card)
+  L.blocks.push(TST([{text:copy.testimonial1.text,name:copy.testimonial1.name+", "+copy.testimonial1.role}]));
+  L.blocks.push(CTA(copy.hero_cta)); L.blocks.push(SP(16));
+  // benefits as feature cards
+  L.blocks.push(IMG(sectionBanner(color,copy.benefits_kicker)));
+  L.blocks.push(H(copy.benefits_title,24,"center"));
+  L.blocks.push(T(copy.benefits_intro,"center"));
+  copy.benefits.forEach(b=>{ L.blocks.push(FEAT(b.icon,b.title,b.text)); });
+  L.blocks.push(SP(6)); L.blocks.push(CTA(copy.cta_mid)); L.blocks.push(SP(16));
+  // testimonial 2 (card)
+  L.blocks.push(TST([{text:copy.testimonial2.text,name:copy.testimonial2.name+", "+copy.testimonial2.role}]));
+  L.blocks.push(CTA(copy.hero_cta)); L.blocks.push(SP(16));
+  // authority
+  L.blocks.push(IMG(sectionBanner(color,copy.authority_kicker)));
+  L.blocks.push(H(copy.authority_title,22,"center"));
+  L.blocks.push(T(copy.authority_intro,"center"));
+  copy.authority_lines.forEach(x=>L.blocks.push(T("•  "+x,"left")));
+  L.blocks.push(T(copy.authority_close,"center"));
+  L.blocks.push(CTA(copy.cta_mid)); L.blocks.push(SP(14));
+  // honest question + comparison
+  L.blocks.push(IMG(sectionBanner(color,copy.final_kicker)));
+  L.blocks.push(T(copy.final_text,"center"));
+  L.blocks.push(H("⛔  "+copy.compare_wait_kicker,16,"left"));
+  L.blocks.push(T(copy.compare_wait_text,"left"));
+  L.blocks.push(H("✅  "+copy.compare_act_kicker,16,"left"));
+  L.blocks.push(T(copy.compare_act_text,"left"));
+  L.blocks.push(CTA(copy.final_cta));
+
+  // ---- 2-5) Quiz (4 questions) ----
+  const q1=newStep("Frage 1",[CHOICE(copy.q1.question,copy.q1.options)],{qlabel:copy.q1.label});
+  const q2=newStep("Frage 2",[CHOICE(copy.q2.question,copy.q2.options)],{qlabel:copy.q2.label});
+  const q3=newStep("Frage 3",[CHOICE(copy.q3.question,copy.q3.options)],{qlabel:copy.q3.label});
+  const q4=newStep("Letzte Frage",[CHOICE(copy.q4.question,copy.q4.options)],{qlabel:copy.q4.label});
+
+  // ---- 6) Application form ----
+  const form=newStep("Bewerbung",[],{});
+  form.blocks.push(H(copy.form_h1,25,"center"));
+  form.blocks.push(T(copy.form_sub,"center"));
+  form.blocks.push(H(copy.form_q,19,"center"));
+  const fb=BLOCK_DEFS.form.make(); fb.submitLabel=copy.form_submit;
+  fb.fields=[
+    {key:"name",label:"👋  Dein Vor- und Nachname",type:"text",required:true},
+    {key:"telefon",label:"📱  Deine Telefonnummer",type:"tel",required:true},
+    {key:"email",label:"✉️  Deine E-Mail Adresse",type:"email",required:true}
+  ];
+  form.blocks.push(fb);
+  form.blocks.push(T(copy.form_note,"center"));
+
+  // ---- 7) Thank you ----
+  const ty=newStep("Danke",[H(copy.ty_h1,25,"center"),T(copy.ty_text,"center")],{});
+  ty.logic.defaultNext="end";
+
+  f.steps=[L,q1,q2,q3,q4,form,ty];
+  return f;
+}
+
+function openOneShotModal(){
+  const cfg=DB.aiConfig||{provider:"openai",apiKey:"",model:""};
+  showModal('<h3>⚡ Recruiting-Funnel — One-Shot</h3>'
+    +'<p class="muted" style="font-size:13px;margin-top:-6px">Exakte Express-Bewerbung-Replika: lange Sales-Landingpage (Hero · Problem · Vision · Testimonials · 8 Vorteile · Beweis · Vergleich) → Quiz „Frage 1–4 von 4" → Bewerbungsformular → Danke. Texte, Brandfarbe & Logo automatisch.</p>'
+    +'<div class="field"><label>Firmen-Website *</label><input id="os-web" placeholder="z.B. colegiosuizo.cl oder https://firma.de"></div>'
+    +'<div class="field"><label>Stellenbezeichnung *</label><input id="os-job" placeholder="z.B. Lehrperson Kindergarten"></div>'
+    +'<div class="split">'
+    +'<div class="field"><label>Firmenname (optional)</label><input id="os-company" placeholder="automatisch aus Website"></div>'
+    +'<div class="field"><label>Standort (optional)</label><input id="os-loc" placeholder="z.B. Santiago de Chile"></div></div>'
+    +'<div class="split">'
+    +'<div class="field"><label>Brandfarbe</label><input id="os-color" type="color" value="#d0292f" style="height:42px;padding:4px"></div>'
+    +'<div class="field"><label>Logo-URL (optional)</label><input id="os-logo" placeholder="automatisch erkannt"></div></div>'
+    +'<details style="margin:6px 0 12px"><summary style="cursor:pointer;color:var(--muted);font-size:13px">🤖 KI-Texterstellung aktivieren (optional)</summary>'
+    +'<div style="margin-top:10px"><div class="notice" style="margin-bottom:10px">Ohne Key nutzt der Generator hochwertige eingebaute Vorlagen. Mit eigenem API-Key werden die Texte live per KI in deiner Brand-Voice geschrieben.</div>'
+    +'<div class="field"><label>Anbieter</label><select id="os-prov"><option value="openai"'+(cfg.provider==="openai"?" selected":"")+'>OpenAI</option><option value="anthropic"'+(cfg.provider==="anthropic"?" selected":"")+'>Anthropic (Claude)</option></select></div>'
+    +'<div class="field"><label>API-Key</label><input id="os-key" type="password" value="'+esc(cfg.apiKey||"")+'" placeholder="sk-..."></div>'
+    +'<div class="field"><label>Modell (optional)</label><input id="os-model" value="'+esc(cfg.model||"")+'" placeholder="z.B. gpt-4o-mini / claude-3-5-haiku-20241022"></div></div></details>'
+    +'<div id="os-status" class="muted" style="font-size:12.5px;min-height:18px"></div>'
+    +'<div class="actions"><button class="btn ghost" data-close>Abbrechen</button><button class="btn primary" id="os-go">⚡ Funnel generieren</button></div>');
+
+  document.getElementById("os-go").onclick=async ()=>{
+    const website=document.getElementById("os-web").value.trim();
+    const job=document.getElementById("os-job").value.trim();
+    if(!website||!job){ document.getElementById("os-status").innerHTML='<span style="color:var(--bad)">Bitte Website und Stellenbezeichnung angeben.</span>'; return; }
+    const domain=deriveDomain(website);
+    const company=document.getElementById("os-company").value.trim()||deriveCompany(domain);
+    const location=document.getElementById("os-loc").value.trim();
+    const color=document.getElementById("os-color").value;
+    const logo=document.getElementById("os-logo").value.trim()||guessLogo(domain);
+    // persist AI config
+    DB.aiConfig={ provider:document.getElementById("os-prov").value,
+      apiKey:document.getElementById("os-key").value.trim(),
+      model:document.getElementById("os-model").value.trim() };
+    saveDB();
+    const o={ website, job, company, location, color, logo, domain };
+    const base=generateExpressCopy(o);
+    const goBtn=document.getElementById("os-go"); const status=document.getElementById("os-status");
+    let copy=base;
+    if(DB.aiConfig.apiKey){
+      goBtn.disabled=true; goBtn.textContent="KI schreibt Texte…"; status.textContent="Verbinde mit KI…";
+      try{ const ai=await aiRewriteExpress(o); copy=mergeExpressCopy(ai, base); status.innerHTML='<span style="color:var(--good)">KI-Texte erstellt ✓</span>'; }
+      catch(e){ copy=base; status.innerHTML='<span style="color:var(--warn)">KI nicht erreichbar ('+esc(e.message)+') – eingebaute Vorlagen verwendet.</span>'; }
+    }
+    const f=buildExpressFunnel(o, copy);
+    DB.funnels.push(f); saveDB();
+    closeModal();
+    toast("Recruiting-Funnel erstellt 🎉");
+    openBuilder(f.id);
+  };
+}
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+function showModal(html){
+  document.getElementById("modal-root").innerHTML='<div class="overlay" id="overlay"><div class="modal">'+html+'</div></div>';
+  document.querySelectorAll("[data-close]").forEach(b=>b.onclick=closeModal);
+  document.getElementById("overlay").addEventListener("mousedown",e=>{ if(e.target.id==="overlay") closeModal(); });
+}
+function closeModal(){ document.getElementById("modal-root").innerHTML=""; }
+function confirmModal(title,msg,onYes){
+  showModal('<h3>'+esc(title)+'</h3><p class="muted">'+esc(msg)+'</p>'
+    +'<div class="actions"><button class="btn ghost" data-close>Abbrechen</button><button class="btn danger" id="cf-yes">Ja, fortfahren</button></div>');
+  document.getElementById("cf-yes").onclick=()=>{ closeModal(); onYes(); };
+}
+
+/* ============================================================
+   GLOBAL bindings after each render (help/reset)
+   ============================================================ */
+const _origRender=render;
+function afterRender(){
+  document.querySelectorAll("[data-oneshot]").forEach(b=>b.onclick=openOneShotModal);
+  document.querySelectorAll("[data-oneshot-webinar]").forEach(b=>b.onclick=openWebinarModal);
+  const imp=document.getElementById("import-funnel"); if(imp) imp.onclick=importFunnelDialog;
+  const reset=document.getElementById("reset-all");
+  if(reset) reset.onclick=()=>confirmModal("Wirklich alles zurücksetzen?","Alle Funnels, Leads und Tracking-Daten werden gelöscht.",()=>{
+    DB={funnels:[],leads:[],events:[],domains:[]}; saveDB(); UI.view="dashboard"; render(); toast("Zurückgesetzt");
+  });
+}
+
+/* wrap render to always run afterRender */
+function renderWrapped(){ _origRender(); afterRender(); }
+window.render = renderWrapped;
+render = renderWrapped;
+
+/* ============================================================
+   DEEP LINK (#funnel=ID opens player)
+   ============================================================ */
+function checkHash(){
+  const m=location.hash.match(/funnel=([\w]+)/);
+  if(!m) return;
+  if(getFunnel(m[1])) startPlayer(m[1]);
+  else toast("Funnel nicht gefunden – Vorschau-Links funktionieren nur im Erstell-Browser. Für öffentliches Teilen: Standalone-Export nutzen.");
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+render();
+checkHash();
+window.addEventListener("hashchange", checkHash);
+</script>
+</body>
+</html>
