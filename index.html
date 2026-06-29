@@ -2588,8 +2588,26 @@ function openOneShotModal(){
    ============================================================ */
 const HTMLEDIT={ visual:false };
 async function aiHtml(system, user){
-  const d=await anthropicJSON({model:"claude-sonnet-4-6",max_tokens:8000,system:system,messages:[{role:"user",content:user}]});
-  let text=aiTextFromResp(d);
+  // Lange Generierung → Streaming-Funktion (hält Verbindung offen, kein 504).
+  const res=await fetch("/.netlify/functions/ai-stream",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:8000,system:system,messages:[{role:"user",content:user}]})});
+  if(!res.ok || !res.body){
+    if(res.status===404) throw new Error("Streaming-Funktion noch nicht da – kurz warten & nochmal (Deploy).");
+    let ex=""; try{ ex=(await res.text()).slice(0,140); }catch(e){}
+    throw new Error("KI nicht erreichbar ("+res.status+") "+ex);
+  }
+  const reader=res.body.getReader(); const dec=new TextDecoder(); let buf="", text="";
+  while(true){
+    const {done,value}=await reader.read(); if(done) break;
+    buf+=dec.decode(value,{stream:true});
+    let nl;
+    while((nl=buf.indexOf("\n"))>=0){
+      const line=buf.slice(0,nl).trim(); buf=buf.slice(nl+1);
+      if(line.startsWith("data:")){
+        const d=line.slice(5).trim();
+        if(d && d!=="[DONE]"){ try{ const ev=JSON.parse(d); if(ev.type==="content_block_delta" && ev.delta && ev.delta.text) text+=ev.delta.text; }catch(e){} }
+      }
+    }
+  }
   text=text.trim().replace(/^```html\s*/i,"").replace(/^```\s*/,"").replace(/```\s*$/,"").trim();
   const m=text.match(/<!DOCTYPE[\s\S]*<\/html>/i)||text.match(/<html[\s\S]*<\/html>/i);
   return m?m[0]:text;
