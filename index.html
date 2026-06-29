@@ -1325,7 +1325,7 @@ async function anthropicJSON(body){
 }
 function aiTextFromResp(d){ return ((d&&d.content&&d.content[0]&&d.content[0].text)||"").trim(); }
 async function aiText(prompt){
-  const d=await anthropicJSON({model:"claude-3-5-haiku-20241022",max_tokens:500,messages:[{role:"user",content:prompt}]});
+  const d=await anthropicJSON({model:"claude-haiku-4-5-20251001",max_tokens:500,messages:[{role:"user",content:prompt}]});
   return aiTextFromResp(d);
 }
 async function blockAI(bl,instruction){
@@ -2222,7 +2222,7 @@ function buildAIPrompt(o){
 }
 async function aiRewrite(o){
   const prompt=buildAIPrompt(o);
-  const d=await anthropicJSON({model:"claude-3-5-haiku-20241022",max_tokens:1600,messages:[{role:"user",content:prompt}]});
+  const d=await anthropicJSON({model:"claude-haiku-4-5-20251001",max_tokens:1600,messages:[{role:"user",content:prompt}]});
   let text=aiTextFromResp(d);
   text=text.replace(/^```(json)?/i,"").replace(/```$/,"").trim();
   return JSON.parse(text);
@@ -2435,7 +2435,7 @@ function mergeExpressCopy(ai, base){
 }
 async function aiRewriteExpress(o){
   const prompt=buildExpressAIPrompt(o);
-  const d=await anthropicJSON({model:"claude-3-5-haiku-20241022",max_tokens:2200,messages:[{role:"user",content:prompt}]});
+  const d=await anthropicJSON({model:"claude-haiku-4-5-20251001",max_tokens:2200,messages:[{role:"user",content:prompt}]});
   let text=aiTextFromResp(d);
   text=text.replace(/^```(json)?/i,"").replace(/```$/,"").trim();
   return JSON.parse(text);
@@ -2547,7 +2547,7 @@ function openOneShotModal(){
     +'<div style="margin-top:10px"><div class="notice" style="margin-bottom:10px">Ohne Key nutzt der Generator hochwertige eingebaute Vorlagen. Mit eigenem API-Key werden die Texte live per KI in deiner Brand-Voice geschrieben.</div>'
     +'<div class="field"><label>Anbieter</label><select id="os-prov"><option value="openai"'+(cfg.provider==="openai"?" selected":"")+'>OpenAI</option><option value="anthropic"'+(cfg.provider==="anthropic"?" selected":"")+'>Anthropic (Claude)</option></select></div>'
     +'<div class="field"><label>API-Key</label><input id="os-key" type="password" value="'+esc(cfg.apiKey||"")+'" placeholder="sk-..."></div>'
-    +'<div class="field"><label>Modell (optional)</label><input id="os-model" value="'+esc(cfg.model||"")+'" placeholder="z.B. gpt-4o-mini / claude-3-5-haiku-20241022"></div></div></details>'
+    +'<div class="field"><label>Modell (optional)</label><input id="os-model" value="'+esc(cfg.model||"")+'" placeholder="z.B. gpt-4o-mini / claude-haiku-4-5-20251001"></div></div></details>'
     +'<div id="os-status" class="muted" style="font-size:12.5px;min-height:18px"></div>'
     +'<div class="actions"><button class="btn ghost" data-close>Abbrechen</button><button class="btn primary" id="os-go">⚡ Funnel generieren</button></div>');
 
@@ -2588,7 +2588,7 @@ function openOneShotModal(){
    ============================================================ */
 const HTMLEDIT={ visual:false };
 async function aiHtml(system, user){
-  const d=await anthropicJSON({model:"claude-3-5-sonnet-20241022",max_tokens:8000,system:system,messages:[{role:"user",content:user}]});
+  const d=await anthropicJSON({model:"claude-sonnet-4-6",max_tokens:8000,system:system,messages:[{role:"user",content:user}]});
   let text=aiTextFromResp(d);
   text=text.trim().replace(/^```html\s*/i,"").replace(/^```\s*/,"").replace(/```\s*$/,"").trim();
   const m=text.match(/<!DOCTYPE[\s\S]*<\/html>/i)||text.match(/<html[\s\S]*<\/html>/i);
@@ -2687,7 +2687,7 @@ async function hgwGenQuestions(){
     +"Antworte AUSSCHLIESSLICH mit gültigem JSON in exakt dieser Struktur, ohne Markdown, ohne Erklärung:\n"
     +'{"audience":"","industry":"","questions":[{"q":"","options":["","",""]},{"q":"","options":["","",""]},{"q":"","options":["","",""]}]}';
   try{
-    const d=await anthropicJSON({model:"claude-3-5-haiku-20241022",max_tokens:900,messages:[{role:"user",content:prompt}]});
+    const d=await anthropicJSON({model:"claude-haiku-4-5-20251001",max_tokens:900,messages:[{role:"user",content:prompt}]});
     let text=aiTextFromResp(d).replace(/^```(json)?/i,"").replace(/```$/,"").trim();
     const data=JSON.parse(text);
     HGW.audience=data.audience||""; HGW.industry=data.industry||"";
