@@ -2589,7 +2589,7 @@ function openOneShotModal(){
 const HTMLEDIT={ visual:false };
 async function aiHtml(system, user){
   // Lange Generierung → Streaming-Funktion (hält Verbindung offen, kein 504).
-  const res=await fetch("/.netlify/functions/ai-stream",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:8000,system:system,messages:[{role:"user",content:user}]})});
+  const res=await fetch("/.netlify/functions/ai-stream",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:6000,system:system,messages:[{role:"user",content:user}]})});
   if(!res.ok || !res.body){
     if(res.status===404) throw new Error("Streaming-Funktion noch nicht da – kurz warten & nochmal (Deploy).");
     let ex=""; try{ ex=(await res.text()).slice(0,140); }catch(e){}
@@ -2613,12 +2613,13 @@ async function aiHtml(system, user){
   return m?m[0]:text;
 }
 function htmlDesignSystem(style){
-  const base="Du bist ein Weltklasse-Conversion-Designer und Senior-Frontend-Entwickler. Du baust EINE komplette, in sich geschlossene HTML-Landeseite (eine Datei, alles inline im <style>, ausser optional Google Fonts via <link>). "
-   +"Pflicht-Regeln: mobile-first und voll responsive; grosszuegiger Weissraum; klare visuelle Hierarchie; ein klares, sich wiederholendes CTA; Above-the-fold-Hero mit starker Headline (clamp 32-60px), Subline und CTA; mind. diese Abschnitte: Hero, Problem/Schmerz, Loesung/Nutzen (Karten mit Icons/Emoji), Social Proof (Testimonials + Zahlen), Angebot/Benefits, FAQ (<details>), finaler CTA, Footer. "
-   +"Designsystem: Farbpalette aus der Brandfarbe ableiten (helle/dunkle Abstufungen), abgerundete Ecken 14-20px, weiche Schatten, moderne Typo-Skala, Zeilenhoehe 1.5-1.7, konsistente Abstaende (Sektionen 64-96px Padding). Sticky-CTA-Leiste am unteren Rand auf Mobil ist ein Plus. "
-   +"Inhalte: ECHTE, ueberzeugende deutsche Beispieltexte (kein Lorem Ipsum), konkret und verkaufsstark. Baue ein funktionierendes Lead-Formular mit <form> und Feldern name, email, telefon. "
-   +"Bilder: nutze CSS-Gradients, SVG-Formen oder Emoji statt externer Foto-URLs (die koennten 404 sein). "
-   +"Gib AUSSCHLIESSLICH vollstaendiges HTML zurueck, beginnend mit <!DOCTYPE html> und endend mit </html>. Keine Erklaerungen, kein Markdown, keine Code-Fences.";
+  const base="Du bist Conversion-Designer und Senior-Frontend-Entwickler. Du baust EINE komplette, in sich geschlossene HTML-Landeseite (eine Datei, alles inline im <style>, ausser optional Google Fonts via <link>). "
+   +"Mobile-first und responsive; klare visuelle Hierarchie; EIN klares, sich wiederholendes CTA; Above-the-fold-Hero mit starker Headline (clamp 30-56px), Subline und CTA. "
+   +"Abschnitte (kompakt halten): Hero, kurzer Problem/Nutzen-Block, 3 Vorteil-Karten (Emoji-Icons), 2 Testimonials, kurze FAQ (<details>), finaler CTA mit Lead-Formular (Felder name, email, telefon), Footer. "
+   +"Designsystem: Farbpalette aus der Brandfarbe ableiten, abgerundete Ecken 14-20px, weiche Schatten, moderne Typo-Skala, Zeilenhoehe 1.5-1.7, Sektionen ca. 56-80px Padding. "
+   +"Inhalte: ECHTE, praegnante deutsche Texte (kein Lorem Ipsum), konkret und verkaufsstark, aber knapp. Bilder via CSS-Gradients, SVG-Formen oder Emoji statt externer Foto-URLs. "
+   +"WICHTIG: Halte die GESAMTE Seite KOMPAKT (Ziel ~350-450 Zeilen) und schliesse sie IMMER vollstaendig mit </html> ab — Vollstaendigkeit geht vor Laenge, lieber knappere Texte als eine abgeschnittene Seite. "
+   +"Gib AUSSCHLIESSLICH vollstaendiges HTML zurueck, von <!DOCTYPE html> bis </html>. Keine Erklaerungen, kein Markdown, keine Code-Fences.";
   const styles={
     bold:"Stilrichtung: BOLD & CONVERSION — kraeftige Brand-Farbflaechen, grosse fette Headlines, Badge/Pills, Urgency (Countdown oder begrenzte Plaetze), viel Social Proof, sehr kontraststarke CTAs.",
     clean:"Stilrichtung: MODERN & CLEAN — viel Weissraum, grosse ruhige Typografie, dezente Akzente, feine 1px-Linien, Apple/Linear-Aesthetik.",
