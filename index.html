@@ -269,10 +269,23 @@ const SUPABASE_URL = "https://pkugrquuudreqkwletyv.supabase.co";        /* Proje
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBrdWdycXV1dWRyZXFrd2xldHl2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI1ODA5MjAsImV4cCI6MjA5ODE1NjkyMH0.vHTiFNkeVvVmzaz9k4m1LeWUlRMCQHzoQcKWyZSlSXM";   /* anon public key (öffentlich, durch RLS geschützt) */
 const SUPA_TABLE = "funnelforge_users";
 
-/* user identity passed from LearningSuite via URL: ?uid=...&name=... */
+/* user identity + business profile passed from LearningSuite via URL */
 const _params = new URLSearchParams(location.search);
-const USER_ID = (_params.get("uid")||"").trim();
-const USER_NAME = (_params.get("name")||"").trim();
+const _p = (k)=>{ const v=_params.get(k); return v? String(v).trim() : ""; };
+const USER_ID = _p("uid");
+const USER_FIRST = _p("name") || _p("vorname") || _p("firstName");
+const USER_LAST = _p("nachname") || _p("lastName");
+const USER_NAME = USER_FIRST;
+/* Business-Profil aus LearningSuite — von der KI für personalisierten Output genutzt */
+const PROFILE = {
+  firstName: USER_FIRST,
+  lastName: USER_LAST,
+  dienstleistung: _p("dienstleistung"),
+  methode: _p("methode"),
+  zielgruppe: _p("zielgruppe") || _p("zielgruppe-branche") || _p("branche"),
+  angebot: _p("angebot") || _p("angebotssatz")
+};
+function applyProfile(){ DB.profile=DB.profile||{}; ["firstName","lastName","dienstleistung","methode","zielgruppe","angebot"].forEach(function(k){ if(PROFILE[k]) DB.profile[k]=PROFILE[k]; }); }
 
 const STORE_KEY = "funnelforge_db_v1" + (USER_ID?("_"+USER_ID):"");
 const VIS_KEY = "funnelforge_visitor";
@@ -289,6 +302,7 @@ let DB = loadDB();
 DB.funnels=DB.funnels||[]; DB.leads=DB.leads||[]; DB.events=DB.events||[]; DB.domains=DB.domains||[];
 DB.schemaVersion=DB.schemaVersion||1;
 if(!DB.aiConfig) DB.aiConfig = { provider:"openai", apiKey:"", model:"" };
+applyProfile();
 
 function loadDB(){
   try{ const raw = localStorage.getItem(STORE_KEY); if(raw) return JSON.parse(raw); }
@@ -315,6 +329,7 @@ async function supaLoad(){
       DB = res.data.data;
       DB.funnels=DB.funnels||[]; DB.leads=DB.leads||[]; DB.events=DB.events||[]; DB.domains=DB.domains||[];
       DB.schemaVersion=DB.schemaVersion||1; if(!DB.aiConfig) DB.aiConfig={provider:"openai",apiKey:"",model:""};
+      applyProfile();
       try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){}
       return true;
     }
@@ -721,8 +736,18 @@ const TEMPLATES = {
 /* ============================================================
    ROOT RENDER / ROUTER
    ============================================================ */
+function lockScreen(){
+  return '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">'
+    +'<div class="card" style="max-width:440px;text-align:center;padding:40px 28px">'
+    +'<div style="font-size:40px;margin-bottom:8px">🔒</div>'
+    +'<h2 style="margin:0 0 8px">Anmeldung erforderlich</h2>'
+    +'<p class="muted" style="line-height:1.6;font-size:14px">Diese App öffnet sich nur über deinen Mitgliederbereich in <b>LearningSuite</b>. Starte FunnelForge bitte dort über deinen Kurs – dann wirst du automatisch erkannt und dein persönlicher Bereich wird geladen.</p>'
+    +'<p class="muted" style="font-size:12px;margin-top:14px">Kein gültiger Zugang erkannt (fehlende Nutzer-ID).</p>'
+    +'</div></div>';
+}
 function render(){
   const root=document.getElementById("root");
+  if(!USER_ID){ root.innerHTML=lockScreen(); return; }
   if(UI.view==="builder"){ const _bf=getFunnel(UI.funnelId);
     if(_bf&&_bf.type==="html"){ root.innerHTML=sidebar()+'<div class="main">'+renderHtmlBuilder(_bf)+'</div>'; bindNav(); bindHtmlBuilder(_bf); return; }
     root.innerHTML=sidebar()+'<div class="main">'+renderBuilder()+'</div>'; bindBuilder(); bindNav(); return; }
@@ -793,7 +818,7 @@ function funnelStats(funnelId, range){
 function renderDashboard(){
   const s=funnelStats(null,UI.range);
   const totalLeads=DB.leads.length;
-  let html='<div class="topbar"><h1>Dashboard</h1><div class="flex gap center"><button class="btn" data-oneshot>⚡ Recruiting One-Shot</button><button class="btn primary" data-new-funnel>+ Neuer Funnel</button>'+rangeSelector()+'</div></div><div class="content">';
+  let html='<div class="topbar"><h1>'+(DB.profile&&DB.profile.firstName?('Hallo, '+esc(DB.profile.firstName)+' 👋'):'Dashboard')+'</h1><div class="flex gap center"><button class="btn" data-oneshot>⚡ Recruiting One-Shot</button><button class="btn primary" data-new-funnel>+ Neuer Funnel</button>'+rangeSelector()+'</div></div><div class="content">';
   html+='<div class="grid cards">'
     + kpi("Funnels gesamt", DB.funnels.length, DB.funnels.filter(f=>f.published).length+" veröffentlicht")
     + kpi("Funnel-Starts", s.starts, "im Zeitraum")
@@ -1500,7 +1525,7 @@ function bindProps(f,step){
   });
   document.querySelectorAll("[data-ffdel]").forEach(b=>b.onclick=()=>{ bl.fields.splice(+b.getAttribute("data-ffdel"),1); saveDB(); render(); });
   const addField=document.getElementById("add-field"); if(addField) addField.onclick=()=>{ bl.fields.push({key:"feld"+bl.fields.length,label:"Neues Feld",type:"text",required:false}); saveDB(); render(); };
-  const aiRw=document.getElementById("p-ai-rw"); if(aiRw) aiRw.onclick=()=>blockAI(bl,"Schreibe diesen deutschen Marketing-Text überzeugender, klarer und prägnanter um. Behalte die Sprache bei. Antworte NUR mit dem neuen Text:\n\n");
+  const aiRw=document.getElementById("p-ai-rw"); if(aiRw) aiRw.onclick=()=>blockAI(bl,profileContext()+"Schreibe diesen deutschen Marketing-Text überzeugender, klarer und prägnanter um. Behalte die Sprache bei. Antworte NUR mit dem neuen Text:\n\n");
   const aiTr=document.getElementById("p-ai-tr"); if(aiTr) aiTr.onclick=()=>blockAI(bl,"Translate this text to English. Answer ONLY with the translation:\n\n");
 }
 function liveCanvas(f,step){
@@ -2627,9 +2652,32 @@ function htmlDesignSystem(style){
   };
   return base+" "+(styles[style]||styles.bold);
 }
+/* Business-Profil des Nutzers (aus LearningSuite) als KI-Kontext */
+function profileContext(){
+  const p=(typeof DB!=="undefined"&&DB.profile)||{};
+  const bits=[];
+  if(p.dienstleistung) bits.push("Dienstleistung/Angebot: "+p.dienstleistung);
+  if(p.methode) bits.push("Methode/Vorgehen: "+p.methode);
+  if(p.zielgruppe) bits.push("Zielgruppe/Branche: "+p.zielgruppe);
+  if(p.angebot) bits.push("Kernversprechen/Angebotssatz: "+p.angebot);
+  if(!bits.length) return "";
+  return "\nKontext zum Business des Nutzers (fuer relevanten, personalisierten Output nutzen, nicht woertlich wiederholen):\n- "+bits.join("\n- ")+"\n";
+}
+function profileOfferDraft(){
+  const p=(typeof DB!=="undefined"&&DB.profile)||{};
+  if(!(p.dienstleistung||p.angebot||p.zielgruppe)) return "";
+  let s="";
+  if(p.dienstleistung) s+="Ich biete "+p.dienstleistung;
+  if(p.zielgruppe) s+=" fuer "+p.zielgruppe;
+  s=s.trim(); if(s) s+=". ";
+  if(p.angebot) s+=p.angebot+(/[.!?]$/.test(String(p.angebot).trim())?" ":". ");
+  if(p.methode) s+="Vorgehen: "+p.methode+".";
+  return s.trim();
+}
 function htmlUserPrompt(o){
   return "Baue eine hochkonvertierende Landeseite auf Deutsch.\n"
    +"Marke/Name: "+(o.brand||"")+"\nZiel / Angebot: "+(o.goal||"")+"\nZielgruppe: "+(o.audience||"")+"\nBranche: "+(o.industry||"")+"\nBrandfarbe (Primaer): "+(o.color||"#4f7cff")+"\n"
+   +profileContext()
    +"Setze alle Pflicht-Abschnitte um, mit konkreten, ueberzeugenden Texten und einem Lead-Formular. Liefere nur die fertige HTML-Seite.";
 }
 function htmlLeadScript(){
@@ -2673,7 +2721,8 @@ function saveLeadData(f, data){
    (läuft über den Netlify-Proxy). Robust: bei KI-Problemen Standardfragen. */
 let HGW = null;
 function openHtmlGenModal(){
-  HGW = { name:"KI-Landeseite", offer:"", style:"bold", color:"#4f7cff", audience:"", industry:"", questions:[], answers:[] };
+  const p=(DB&&DB.profile)||{};
+  HGW = { name:"KI-Landeseite", offer:profileOfferDraft(), style:"bold", color:"#4f7cff", audience:p.zielgruppe||"", industry:p.zielgruppe||"", questions:[], answers:[] };
   hgwStep1();
 }
 function hgwStep1(){
@@ -2701,6 +2750,7 @@ async function hgwGenQuestions(){
   const btn=document.getElementById("hgw-next"); btn.disabled=true; btn.textContent="KI denkt nach…";
   st.textContent="Die KI überlegt sich passende Fragen…";
   const prompt="Du bist Conversion-Stratege. Ein Nutzer will eine Landingpage bauen. Sein Angebot: \""+offer+"\".\n"
+    +profileContext()
     +"Stelle GENAU 3 kurze, wichtige Rückfragen, deren Antworten die Seite deutlich besser machen (z.B. Zielgruppe, Hauptnutzen, größter Einwand, gewünschte Aktion/CTA). "
     +"Gib zu jeder Frage 3-4 konkrete, anklickbare Antwort-Vorschläge, passend zum Angebot. Schätze außerdem Zielgruppe und Branche. "
     +"Antworte AUSSCHLIESSLICH mit gültigem JSON in exakt dieser Struktur, ohne Markdown, ohne Erklärung:\n"
